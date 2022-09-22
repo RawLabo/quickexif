@@ -1,13 +1,13 @@
 use super::value::Value;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OffsetType {
     Bytes(isize),
     Address,
     PrevField(&'static str),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum CondType {
     LT,
     EQ,
