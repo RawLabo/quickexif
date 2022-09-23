@@ -1,2 +1,4 @@
 # quickexif
-A rust library for fast extraction of exif information
+A rust library to parse EXIF data from images
+
+Check docs: [https://docs.rs/quickexif](https://docs.rs/quickexif)
