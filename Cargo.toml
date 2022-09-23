@@ -7,8 +7,8 @@ description = "A rust library to parse EXIF data from images"
 keywords = ["exif", "tiff", "jpeg"]
 documentation = "https://docs.rs/quickexif"
 repository = "https://github.com/qdwang/quickexif"
-license-file = "LICENSE"
+license = "LGPL-2.1"
+exclude = ["tests/samples/"]
 
 [dependencies]
 thiserror = "1"
-
