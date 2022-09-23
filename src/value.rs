@@ -1,3 +1,5 @@
+//! Represents the type of values that may be contained in the EXIF data.
+//! 
 use super::utility::GetBytesFromInt;
 use thiserror::Error;
 

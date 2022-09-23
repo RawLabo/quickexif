@@ -5,7 +5,7 @@ fn parse_jpg() {
     let sample = fs::read("tests/samples/sample0.JPG").unwrap();
 
     // the JPEG header will automatically be removed
-    let task = quickexif::describe_rule!(tiff {
+    let rule = quickexif::describe_rule!(tiff {
         0x010f {
             str + 0 / make
         }
@@ -31,7 +31,7 @@ fn parse_jpg() {
         }
     });
 
-    let parsed_info = quickexif::parser::Parser::parse(&sample, &task).unwrap();
+    let parsed_info = quickexif::parser::Parser::parse(&sample, &rule).unwrap();
 
     let make = parsed_info.str("make").unwrap();
     let model = parsed_info.str("model").unwrap();

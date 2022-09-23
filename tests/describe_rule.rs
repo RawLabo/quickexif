@@ -1,5 +1,5 @@
 use quickexif;
-use quickexif::exif::{CondType::*, ExifTask::*, OffsetType::*};
+use quickexif::rule::{CondType::*, ParsingRule::*, OffsetType::*};
 use quickexif::value::Value::*;
 
 #[test]
@@ -29,7 +29,7 @@ fn test_describe_rules_template() {
             u16 + 0 / white_level
         }
     });
-    let task = quickexif::describe_rule!(tiff {
+    let rule = quickexif::describe_rule!(tiff {
         load(tpl1)
 
         0xc61d / wl(white_level_len)
@@ -54,7 +54,7 @@ fn test_describe_rules_template() {
                 Jump {
                     tag: 271,
                     is_optional: false,
-                    tasks: vec![
+                    rules: vec![
                         OffsetItem {
                             offset: 0,
                             name: "make",
@@ -105,13 +105,13 @@ fn test_describe_rules_template() {
             left: vec![Jump {
                 tag: 36,
                 is_optional: false,
-                tasks: vec![Offset(
+                rules: vec![Offset(
                     Bytes(0),
                     vec![
                         Jump {
                             tag: 29456,
                             is_optional: false,
-                            tasks:vec![OffsetItem {
+                            rules:vec![OffsetItem {
                                 offset: 0,
                                 name: "black_level",
                                 t: U16(0),
@@ -120,7 +120,7 @@ fn test_describe_rules_template() {
                         Jump {
                             tag: 29458,
                             is_optional: false,
-                            tasks: vec![
+                            rules: vec![
                                 OffsetItem {
                                     offset: 0,
                                     name: "white_balance_r",
@@ -148,7 +148,7 @@ fn test_describe_rules_template() {
                         Jump {
                             tag: 30847,
                             is_optional: false,
-                            tasks: vec![OffsetItem {
+                            rules: vec![OffsetItem {
                                 offset: 0,
                                 name: "white_level",
                                 t: U16(0),
@@ -165,7 +165,7 @@ fn test_describe_rules_template() {
                         Jump {
                             tag: 29456,
                             is_optional: false,
-                            tasks: vec![OffsetItem {
+                            rules: vec![OffsetItem {
                                 offset: 0,
                                 name: "black_level",
                                 t: U16(0),
@@ -174,7 +174,7 @@ fn test_describe_rules_template() {
                         Jump {
                             tag: 29458,
                             is_optional: false,
-                            tasks: vec![
+                            rules: vec![
                                 OffsetItem {
                                     offset: 0,
                                     name: "white_balance_r",
@@ -202,7 +202,7 @@ fn test_describe_rules_template() {
                         Jump {
                             tag: 30847,
                             is_optional: false,
-                            tasks: vec![OffsetItem {
+                            rules: vec![OffsetItem {
                                 offset: 0,
                                 name: "white_level",
                                 t: U16(0),
@@ -214,12 +214,12 @@ fn test_describe_rules_template() {
         },
     ]);
 
-    assert_eq!(task, answer);
+    assert_eq!(rule, answer);
 }
 
 #[test]
 fn test_describe_rules() {
-    let task = quickexif::describe_rule!(tiff {
+    let rule = quickexif::describe_rule!(tiff {
         0x010f {
             str + 0 / make
             u32 + 1 / cfa
@@ -360,7 +360,7 @@ fn test_describe_rules() {
         Jump {
             tag: 271,
             is_optional: false,
-            tasks: vec![
+            rules: vec![
                 OffsetItem {
                     offset: 0,
                     name: "make",
@@ -400,7 +400,7 @@ fn test_describe_rules() {
         Jump {
             tag: 61,
             is_optional: true,
-            tasks: vec![Offset(
+            rules: vec![Offset(
                 Bytes(10),
                 vec![OffsetItem {
                     offset: 0,
@@ -412,15 +412,15 @@ fn test_describe_rules() {
         Jump {
             tag: 50740,
             is_optional: false,
-            tasks: vec![SonyDecrypt {
+            rules: vec![SonyDecrypt {
                 offset_tag: 29184,
                 len_tag: 29185,
                 key_tag: 29217,
-                tasks: vec![
+                rules: vec![
                     Jump {
                         tag: 29456,
                         is_optional: false,
-                        tasks: vec![OffsetItem {
+                        rules: vec![OffsetItem {
                             offset: 0,
                             name: "black_level",
                             t: U16(0),
@@ -429,7 +429,7 @@ fn test_describe_rules() {
                     Jump {
                         tag: 29458,
                         is_optional: false,
-                        tasks: vec![
+                        rules: vec![
                             OffsetItem {
                                 offset: 0,
                                 name: "white_balance_r",
@@ -457,7 +457,7 @@ fn test_describe_rules() {
                     Jump {
                         tag: 30847,
                         is_optional: false,
-                        tasks: vec![OffsetItem {
+                        rules: vec![OffsetItem {
                             offset: 0,
                             name: "white_level",
                             t: U16(0),
@@ -496,7 +496,7 @@ fn test_describe_rules() {
         Jump {
             tag: 330,
             is_optional: false,
-            tasks: vec![Offset(
+            rules: vec![Offset(
                 Bytes(4),
                 vec![Offset(
                     Address,
@@ -524,10 +524,10 @@ fn test_describe_rules() {
             vec![Scan {
                 marker: &[73, 73, 42, 0],
                 name: Some("tiff_offset"),
-                tasks: vec![Tiff(vec![Jump {
+                rules: vec![Tiff(vec![Jump {
                     tag: 61440,
                     is_optional: false,
-                    tasks: vec![
+                    rules: vec![
                         TagItem {
                             tag: 61441,
                             name: "width",
@@ -538,7 +538,7 @@ fn test_describe_rules() {
                         Jump {
                             tag: 61450,
                             is_optional: false,
-                            tasks: vec![OffsetItem {
+                            rules: vec![OffsetItem {
                                 offset: 0,
                                 name: "black_level",
                                 t: U32(0),
@@ -547,7 +547,7 @@ fn test_describe_rules() {
                         Jump {
                             tag: 61453,
                             is_optional: false,
-                            tasks: vec![OffsetItem {
+                            rules: vec![OffsetItem {
                                 offset: 0,
                                 name: "white_balance_g",
                                 t: U32(0),
@@ -576,7 +576,7 @@ fn test_describe_rules() {
             right: vec![Jump {
                 tag: 16980,
                 is_optional: false,
-                tasks: vec![OffsetItem {
+                rules: vec![OffsetItem {
                     offset: 0,
                     name: "bar_level",
                     t: U16(0),
@@ -602,7 +602,7 @@ fn test_describe_rules() {
             right: vec![Jump {
                 tag: 16980,
                 is_optional: false,
-                tasks: vec![OffsetItem {
+                rules: vec![OffsetItem {
                     offset: 0,
                     name: "foo_level",
                     t: U16(0),
@@ -628,7 +628,7 @@ fn test_describe_rules() {
             right: vec![Jump {
                 tag: 50717,
                 is_optional: false,
-                tasks: vec![OffsetItem {
+                rules: vec![OffsetItem {
                     offset: 0,
                     name: "white_level",
                     t: U16(0),
@@ -694,15 +694,15 @@ fn test_describe_rules() {
         Jump {
             tag: 46,
             is_optional: false,
-            tasks: vec![Offset(
+            rules: vec![Offset(
                 Bytes(12),
                 vec![Tiff(vec![Jump {
                     tag: 34665,
                     is_optional: false,
-                    tasks: vec![Jump {
+                    rules: vec![Jump {
                         tag: 37500,
                         is_optional: false,
-                        tasks: vec![Offset(
+                        rules: vec![Offset(
                             Bytes(12),
                             vec![
                                 TagItem {
@@ -727,5 +727,5 @@ fn test_describe_rules() {
         },
     ]);
 
-    assert_eq!(task, answer);
+    assert_eq!(rule, answer);
 }
