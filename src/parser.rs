@@ -1,6 +1,6 @@
 //! Parses the data bytes by the rule and collects the values.
-//! 
-//! 
+//!
+//!
 use super::*;
 use parsed_info::*;
 use rule::*;
@@ -53,7 +53,7 @@ impl<'a> Parser<'a> {
     fn get_info_with_content(
         buffer: &[u8],
         rule: &rule::ParsingRule,
-        mut content: HashMap<String, Value>,
+        mut content: HashMap<&'static str, Value>,
     ) -> Result<ParsedInfo, Error> {
         let buffer = if buffer[..2] == [0xff, 0xd8] {
             // JPEG header fix
@@ -134,7 +134,7 @@ impl<'a> Parser<'a> {
     fn run_remain_rules(
         &mut self,
         rules: &[rule::ParsingRule],
-        content: &mut HashMap<String, Value>,
+        content: &mut HashMap<&'static str, Value>,
     ) -> Result<(), Error> {
         // IFD entry check
         if Parser::is_rules_in_ifd(rules) {
@@ -160,7 +160,7 @@ impl<'a> Parser<'a> {
     fn run_rule_body(
         &self,
         rule: &rule::ParsingRule,
-        content: &mut HashMap<String, Value>,
+        content: &mut HashMap<&'static str, Value>,
     ) -> Result<(), Error> {
         match rule {
             // blocks
@@ -253,7 +253,7 @@ impl<'a> Parser<'a> {
 
                 let tiff_offset = offset + self.offset;
                 if let Some(n) = name {
-                    content.insert(n.to_owned(), Value::U32(tiff_offset as u32));
+                    content.insert(n, Value::U32(tiff_offset as u32));
                 }
 
                 let mut new_parser = Parser {
@@ -335,10 +335,10 @@ impl<'a> Parser<'a> {
                 };
                 match (value, is_optional) {
                     (Ok(v), _) => {
-                        content.insert(name.to_owned(), v);
+                        content.insert(name, v);
                         if let Some(len_name) = len {
                             let value = self.read_u32value_from_entries(tag, Some(4))?;
-                            content.insert(len_name.to_owned(), Value::U32(value));
+                            content.insert(len_name, Value::U32(value));
                         }
                     }
                     (Err(e), false) => Err(e)?,
@@ -351,7 +351,7 @@ impl<'a> Parser<'a> {
                 ref t,
             } => {
                 let value = self.read_value_from_offset(offset, t);
-                content.insert(name.to_owned(), value);
+                content.insert(name, value);
             }
         };
         Ok(())
