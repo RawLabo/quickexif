@@ -31,7 +31,7 @@ fn parse_jpg() {
         }
     });
 
-    let parsed_info = quickexif::parser::Parser::parse(&sample, &rule).unwrap();
+    let parsed_info = quickexif::parse(&sample, &rule).unwrap();
 
     let make = parsed_info.str("make").unwrap();
     let model = parsed_info.str("model").unwrap();

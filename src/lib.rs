@@ -17,7 +17,7 @@
 //!     }
 //! });
 //! 
-//! let parsed_info = quickexif::parser::Parser::parse(&sample, &rule).unwrap();
+//! let parsed_info = quickexif::parse(&sample, &rule).unwrap();
 //! 
 //! let make = parsed_info.str("make").unwrap();
 //! let width = parsed_info.u32("width").unwrap();
@@ -29,3 +29,5 @@ pub mod parsed_info;
 pub mod parser;
 pub mod value;
 mod utility;
+
+pub use parser::parse as parse;

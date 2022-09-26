@@ -27,12 +27,17 @@ pub enum Error {
     ScanFailed(&'static [u8]),
 }
 
-pub struct Parser<'a> {
+struct Parser<'a> {
     is_le: bool, // is little endian
     buffer: &'a [u8],
     offset: usize,
     entries: HashMap<u16, &'a [u8]>,
     next_offset: usize,
+}
+
+pub fn parse(buffer: &[u8], rule: &rule::ParsingRule) -> Result<ParsedInfo, Error> {
+    let content = HashMap::new();
+    Parser::get_info_with_content(buffer, rule, content)
 }
 
 impl<'a> Parser<'a> {
@@ -43,11 +48,6 @@ impl<'a> Parser<'a> {
             TIFF_BIG_ENDIAN => Ok(false),
             _ => Err(Error::InvalidTiffHeaderByteOrder(byte_order)),
         }
-    }
-
-    pub fn parse(buffer: &[u8], rule: &rule::ParsingRule) -> Result<ParsedInfo, Error> {
-        let content = HashMap::new();
-        Self::get_info_with_content(buffer, rule, content)
     }
 
     fn get_info_with_content(
