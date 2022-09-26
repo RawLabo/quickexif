@@ -14,7 +14,7 @@ pub enum Error {
 
 pub struct ParsedInfo {
     pub(crate) is_le: bool,
-    pub(crate) content: HashMap<String, value::Value>,
+    pub(crate) content: HashMap<&'static str, value::Value>,
 }
 
 macro_rules! gen_collector_impls_for_num {

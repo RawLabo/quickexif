@@ -25,7 +25,7 @@
 //! ```
 //! 
 pub mod rule;
-mod parsed_info;
+pub mod parsed_info;
 pub mod parser;
-mod utility;
 pub mod value;
+mod utility;
