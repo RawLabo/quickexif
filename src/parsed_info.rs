@@ -13,7 +13,7 @@ pub enum Error {
 }
 
 pub struct ParsedInfo {
-    pub(crate) is_le: bool,
+    pub is_le: bool,
     pub(crate) content: HashMap<&'static str, value::Value>,
 }
 
