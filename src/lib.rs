@@ -31,3 +31,6 @@ pub mod value;
 mod utility;
 
 pub use parser::parse as parse;
+pub use parser::parse_with_prev_info as parse_with_prev_info;
+pub use parsed_info::ParsedInfo as ParsedInfo;
+pub use rule::ParsingRule as ParsingRule;

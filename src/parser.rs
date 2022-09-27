@@ -39,6 +39,13 @@ pub fn parse(buffer: &[u8], rule: &rule::ParsingRule) -> Result<ParsedInfo, Erro
     let content = HashMap::new();
     Parser::get_info_with_content(buffer, rule, content)
 }
+pub fn parse_with_prev_info(
+    buffer: &[u8],
+    rule: &rule::ParsingRule,
+    info: ParsedInfo,
+) -> Result<ParsedInfo, Error> {
+    Parser::get_info_with_content(buffer, rule, info.content)
+}
 
 impl<'a> Parser<'a> {
     fn is_byte_order_le(buffer: &[u8], start: usize) -> Result<bool, Error> {
