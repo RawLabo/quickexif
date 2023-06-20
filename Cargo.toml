@@ -1,6 +1,6 @@
 [package]
 name = "quickexif"
-version = "0.1.5"
+version = "0.2.0-alpha.1"
 edition = "2021"
 description = "A rust library to parse EXIF data from images"
 keywords = ["exif", "tiff", "jpeg"]
@@ -11,3 +11,7 @@ exclude = ["tests/samples/"]
 
 [dependencies]
 thiserror = "1"
+log = "0.4"
+
+[dev-dependencies]
+env_logger = "0.10"
