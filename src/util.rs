@@ -1,4 +1,4 @@
-pub(crate) type R<T> = Result<T, Box<dyn std::error::Error>>;
+pub type R<T> = Result<T, Box<dyn std::error::Error>>;
 
 macro_rules! log_err {
     ($($body:tt)*) => {
