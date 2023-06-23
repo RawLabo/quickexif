@@ -15,6 +15,7 @@ pub struct IFDItem {
     format: [u8; 2],
     size: [u8; 4],
     value: [u8; 4],
+    actual_value: Option<Box<[u8]>>,
 }
 
 struct TiffParser<T: Read + Seek> {
@@ -119,6 +120,42 @@ impl<T: Read + Seek> TiffParser<T> {
         })
     }
 
+    fn check_actual_value(
+        &mut self,
+        format: [u8; 2],
+        size: [u8; 4],
+        addr: [u8; 4],
+    ) -> io::Result<Option<Box<[u8]>>> {
+        let format_size = match format {
+            [0x01, 0] => 1u32,
+            [0x02, 0] => 1, // string
+            [0x03, 0] => 2,
+            [0x04, 0] => 4,
+            [0x05, 0] => 8,
+            [0x06, 0] => 1,
+            [0x07, 0] => 0,
+            [0x08, 0] => 2,
+            [0x09, 0] => 4,
+            [0x0a, 0] => 8,
+            [0x0b, 0] => 4,
+            [0x0c, 0] => 8,
+            [0x0d, 0] => 4,
+            [0x0e, 0] => 8,
+            _ => 1
+        };
+        let total_size = self.u32(size) * format_size;
+        if total_size > 4 || format[0] == 0x02 {
+            let addr = self.u32(addr);
+            let pos = self.reader.stream_position()?;
+            self.seek_ab(addr)?;
+            let actual_value = self.read_to_vec(total_size as usize)?;
+            self.seek_ab(pos as u32)?;
+            Ok(Some(actual_value.into()))
+        } else {
+            Ok(None)
+        }
+    }
+
     fn parse_ifd(
         &mut self,
         path: Vec<u8>,
@@ -139,6 +176,7 @@ impl<T: Read + Seek> TiffParser<T> {
             let format = self.read_shift::<2>()?;
             let size = self.read_shift::<4>()?;
             let value = self.read_shift::<4>()?;
+            let actual_value = self.check_actual_value(format, size, value)?;
 
             if let Some(&path_index) = self.path_map.get(path.as_slice()) {
                 collector.insert(
@@ -148,6 +186,7 @@ impl<T: Read + Seek> TiffParser<T> {
                         format,
                         size,
                         value,
+                        actual_value
                     },
                 );
             }

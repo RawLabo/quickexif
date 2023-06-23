@@ -15,19 +15,20 @@ fn parse_arw() -> quickexif::R<()> {
     ];
 
     let result = quickexif::parse_exif(f, path_lst, Some((2, 3)))?;
-    
-    let mut counter = HashMap::new();
-    for (key, ifd_item) in result.iter() {
-        let index = key[0];
-        let prev = if let Some(x) = counter.get(&index) {
-            *x
-        } else {
-            0
-        };
-        counter.insert(index, prev + 1);
-    }
+    // info!("{:x?}", result);
 
-    info!("{:?}", counter);
+    // let mut counter = HashMap::new();
+    // for (key, ifd_item) in result.iter() {
+    //     let index = key[0];
+    //     let prev = if let Some(x) = counter.get(&index) {
+    //         *x
+    //     } else {
+    //         0
+    //     };
+    //     counter.insert(index, prev + 1);
+    // }
+
+    // info!("{:?}", counter);
     Ok(())
 }
 
