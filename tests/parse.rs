@@ -1,5 +1,5 @@
-use std::{collections::HashMap, fs::File};
 use log::info;
+use std::{collections::HashMap, fs::File};
 
 // quickexif::describe_rule!(tiff {
 //     0x010f {
@@ -91,18 +91,42 @@ use log::info;
 // })
 
 macro_rules! gen_tags_mapping {
-    ($id:ident / $path_index:literal $tag:literal) => {
-        pub const $id : &(u16, u16) = &($path_index, $tag);
+    [$($path:literal)* { $($body:tt)* } $($tails:tt)*] => {
+        gen_tags_mapping![@path(&[$($path),*],) @defs() @path_index(0; $($body)*) $($tails)*];
     };
+    
+    [@path($($p:tt)*) @defs($($d:tt)*) @path_index($pi:expr;) $($path:literal)* { $($body:tt)* } $($tails:tt)*] => {
+        gen_tags_mapping![@path($($p)* &[$($path),*],) @defs($($d)*) @path_index($pi + 1; $($body)*) $($tails)*];
+    };
+
+    [@path($($p:tt)*) @defs($($d:tt)*) @path_index($pi:expr; $tag:literal $id:ident $($inner_tails:tt)*) $($tails:tt)*] => {
+        gen_tags_mapping![@path($($p)*) @defs($($d)* pub const $id:&(u16, u16) = &($pi, $tag);) @path_index($pi; $($inner_tails)*) $($tails)*];
+    };
+
+    [@path($($p:tt)*) @defs($($d:tt)*) @path_index($pi:expr;)] => {
+        pub const PATH_LST : &[&'static [u16]] = &[$($p)*];
+        $($d)*
+    }
 }
+
 mod SonyTags {
     #![allow(non_upper_case_globals)]
-    gen_tags_mapping!(make / 0 0x010f);
-    gen_tags_mapping!(model / 0 0x0110);
-
-    gen_tags_mapping!(orientation / 0 0x0112);
-    gen_tags_mapping!(preview_offset / 0 0x0201);
-    gen_tags_mapping!(preview_len / 0 0x0202);
+    gen_tags_mapping!(
+        0 {
+            0x010f make
+            0x0110 model
+            0x0112 orientation
+            0x0201 preview_offset
+            0x0202 preview_len
+        }
+        0 0x8769 0 {}
+        0 0xc634 0 {}
+        0 0xc634 0 0x7200 0xffff {}
+        0 0x014a 0 {
+            0x828e cfa_pattern
+        }
+        1 {}
+    );
 }
 
 #[test]
@@ -110,18 +134,14 @@ fn parse_arw() -> quickexif::R<()> {
     env_logger::init();
     let sample = "tests/samples/sample0.ARW";
     let f = File::open(sample)?;
-    let path_lst: &[&'static [u16]] = &[
-        &[0u16],
-        &[0, 0x8769, 0],
-        &[0, 0xc634, 0],
-        &[0, 0xc634, 0, 0x7200, 0xffff],
-        &[1],
-    ];
 
-    let result = quickexif::parse_exif(f, path_lst, Some((2, 3)))?;
+    let result = quickexif::parse_exif(f, SonyTags::PATH_LST, Some((2, 3)))?;
 
     info!("{:?}", result.get(SonyTags::make).unwrap().str());
     info!("{:?}", result.get(SonyTags::model).unwrap().str());
+
+    info!("{:x?}", result.get(SonyTags::cfa_pattern).unwrap().raw());
+
     info!("{}", result.get(SonyTags::orientation).unwrap().u16());
     info!("{:x?}", result.get(SonyTags::preview_offset).unwrap().u32());
     info!("{}", result.get(SonyTags::preview_len).unwrap().u32());
@@ -139,4 +159,3 @@ fn parse_arw() -> quickexif::R<()> {
 
     Ok(())
 }
-
