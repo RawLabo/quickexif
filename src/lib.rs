@@ -20,6 +20,9 @@ pub struct IFDItem {
 }
 
 impl IFDItem {
+    pub fn raw(&self) -> [u8; 4] {
+        self.value
+    }
     pub fn u16(&self) -> u16 {
         let v = [self.value[0], self.value[1]];
         if self.is_le {
@@ -323,18 +326,18 @@ impl<T: Read + Seek> TiffParser<T> {
 
 pub fn parse_exif<T: Read + Seek>(
     input: T,
-    path_lst: &[&'static [u16]],
+    path_dig: &[&'static [u16]],
     sony_decrypt_index: Option<(u16, usize)>, // (sr2private_path_index, sr2private_offset_path_index)
 ) -> R<Collector> {
     let reader = BufReader::new(input);
 
-    let mut parser = TiffParser::new(reader, path_lst)?;
+    let mut parser = TiffParser::new(reader, path_dig)?;
     let mut result = parser.parse()?;
 
     if let Some((sr2private_path_index, sr2private_offset_path_index)) = sony_decrypt_index {
         parser.parse_sony_sr2private(
             sr2private_path_index,
-            path_lst[sr2private_offset_path_index].to_vec(),
+            path_dig[sr2private_offset_path_index].to_vec(),
             &mut result,
         )?;
     }
