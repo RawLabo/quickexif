@@ -47,6 +47,36 @@ impl IFDItem {
                 .collect()
         })
     }
+    pub fn u16s(&self) -> Option<Box<[u16]>> {
+        self.actual_value.as_ref().map(|bytes| {
+            bytes
+                .chunks_exact(2)
+                .map(|x| {
+                    let v: [u8; 2] = [x[0], x[1]];
+                    if self.is_le {
+                        u16::from_le_bytes(v)
+                    } else {
+                        u16::from_be_bytes(v)
+                    }
+                })
+                .collect()
+        })
+    }
+    pub fn u32s(&self) -> Option<Box<[u32]>> {
+        self.actual_value.as_ref().map(|bytes| {
+            bytes
+                .chunks_exact(4)
+                .map(|x| {
+                    let v: [u8; 4] = [x[0], x[1], x[2], x[3]];
+                    if self.is_le {
+                        u32::from_le_bytes(v)
+                    } else {
+                        u32::from_be_bytes(v)
+                    }
+                })
+                .collect()
+        })
+    }
     pub fn r64s(&self) -> Option<Box<[f64]>> {
         self.actual_value.as_ref().map(|bytes| {
             bytes
@@ -69,6 +99,7 @@ impl IFDItem {
 struct TiffParser<T: Read + Seek> {
     is_le: bool,
     init_pos: i64,
+    addr_shift: i32,  // shift for actual value address
     reader: BufReader<T>,
     path_map: HashMap<&'static [u16], u16>,
 }
@@ -165,6 +196,7 @@ impl<T: Read + Seek> TiffParser<T> {
         Ok(Self {
             is_le,
             init_pos: init_pos as i64,
+            addr_shift: 0,
             reader,
             path_map,
         })
@@ -195,7 +227,7 @@ impl<T: Read + Seek> TiffParser<T> {
         };
         let total_size = self.u32(size) * format_size;
         if total_size > 4 || format[0] == 0x02 {
-            let addr = self.u32(addr);
+            let addr = (self.u32(addr) as i32 + self.addr_shift) as u32;
             let pos = self.reader.stream_position()?;
             self.seek_ab(addr)?;
             let actual_value = self.read_to_vec(total_size as usize)?;
@@ -206,11 +238,7 @@ impl<T: Read + Seek> TiffParser<T> {
         }
     }
 
-    fn parse_ifd(
-        &mut self,
-        path: Vec<u16>,
-        collector: &mut Collector,
-    ) -> io::Result<()> {
+    fn parse_ifd(&mut self, path: Vec<u16>, collector: &mut Collector) -> io::Result<()> {
         let entry_count = {
             let x = self.read_shift::<2>()?;
             self.u16(x)
@@ -224,7 +252,7 @@ impl<T: Read + Seek> TiffParser<T> {
         for _ in 0..entry_count {
             let tag = self.read_shift::<2>()?;
             let tag = self.u16(tag);
-            
+
             let format = self.read_shift::<2>()?;
             let size = self.read_shift::<4>()?;
             let value = self.read_shift::<4>()?;
@@ -313,6 +341,7 @@ impl<T: Read + Seek> TiffParser<T> {
                 let mut new_parser = TiffParser {
                     is_le: self.is_le,
                     init_pos: 0,
+                    addr_shift: -(offset as i32),
                     reader: BufReader::new(std::io::Cursor::new(decrypted)),
                     path_map: self.path_map.clone(),
                 };
