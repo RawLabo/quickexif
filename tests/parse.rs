@@ -1,5 +1,7 @@
 use log::info;
 use std::{collections::HashMap, fs::File};
+use quickexif::log_helper::*;
+
 // quickexif::describe_rule!(tiff {
 //     0x010f {
 //         str + 0 / make
@@ -126,12 +128,12 @@ mod SonyTags {
 }
 
 #[test]
-fn parse_arw() -> quickexif::R<()> {
+fn parse_arw() -> LogResult<()> {
     env_logger::init();
     let sample = "tests/samples/sample1.ARW";
-    let f = File::open(sample)?;
+    let f = q!(File::open(sample));
 
-    let result = quickexif::parse_exif(f, SonyTags::PATH_LST, Some((0, 1)))?;
+    let result = q!(quickexif::parse_exif(f, SonyTags::PATH_LST, Some((0, 1))));
 
     info!("{:?}", result.get(SonyTags::make).and_then(|x| x.str()));
     info!("{:?}", result.get(SonyTags::model).and_then(|x| x.str()));

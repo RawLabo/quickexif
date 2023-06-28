@@ -1,13 +1,11 @@
-pub(crate) mod util;
+pub mod log_helper;
 
-use log::info;
 use std::{
     collections::HashMap,
-    fs::File,
-    io::{self, BufReader, Read, Seek},
+    io::{BufReader, Read, Seek},
 };
-pub use util::R;
-use util::*;
+
+use log_helper::*;
 
 #[derive(Debug)]
 pub struct IFDItem {
@@ -99,7 +97,7 @@ impl IFDItem {
 struct TiffParser<T: Read + Seek> {
     is_le: bool,
     init_pos: i64,
-    addr_shift: i32,  // shift for actual value address
+    addr_shift: i32, // shift for actual value address
     reader: BufReader<T>,
     path_map: HashMap<&'static [u16], u16>,
 }
@@ -154,35 +152,38 @@ impl<T: Read + Seek> TiffParser<T> {
             .collect::<Vec<u8>>()
     }
 
-    fn read_to_vec(&mut self, bytes_count: usize) -> io::Result<Vec<u8>> {
+    fn read_to_vec(&mut self, bytes_count: usize) -> LogResult<Vec<u8>> {
         let mut ret = vec![0u8; bytes_count];
-        self.reader.read_exact(&mut ret)?;
+        q!(self.reader.read_exact(&mut ret));
         Ok(ret)
     }
-    fn read_shift<const N: usize>(&mut self) -> io::Result<[u8; N]> {
+    fn read_shift<const N: usize>(&mut self) -> LogResult<[u8; N]> {
         let mut ret = [0u8; N];
-        self.reader.read_exact(&mut ret)?;
+        q!(self.reader.read_exact(&mut ret));
         Ok(ret)
     }
-    fn read_no_shift<const N: usize>(&mut self) -> io::Result<[u8; N]> {
+    fn _read_no_shift<const N: usize>(&mut self) -> LogResult<[u8; N]> {
         let ret = self.read_shift();
-        self.reader.seek_relative(N as i64 * -1)?;
+        q!(self.reader.seek_relative(N as i64 * -1));
         ret
     }
-    fn seek_ab(&mut self, loc: u32) -> io::Result<()> {
-        let pos = self.reader.stream_position()?;
-        self.reader
-            .seek_relative(self.init_pos + loc as i64 - pos as i64)
+    fn seek_ab(&mut self, loc: u32) -> LogResult<()> {
+        let pos = q!(self.reader.stream_position());
+        q!(self
+            .reader
+            .seek_relative(self.init_pos + loc as i64 - pos as i64));
+        Ok(())
     }
-    fn seek_re(&mut self, loc: i64) -> io::Result<()> {
-        self.reader.seek_relative(self.init_pos + loc)
+    fn seek_re(&mut self, loc: i64) -> LogResult<()> {
+        q!(self.reader.seek_relative(self.init_pos + loc));
+        Ok(())
     }
 
-    fn new(mut reader: BufReader<T>, path_lst: impl AsRef<[&'static [u16]]>) -> io::Result<Self> {
-        let init_pos = reader.stream_position()?;
+    fn new(mut reader: BufReader<T>, path_lst: impl AsRef<[&'static [u16]]>) -> LogResult<Self> {
+        let init_pos = q!(reader.stream_position());
         let is_le = {
             let mut header = [0u8; 2];
-            reader.read_exact(&mut header)?;
+            q!(reader.read_exact(&mut header));
             header == [0x49u8, 0x49]
         };
 
@@ -207,7 +208,7 @@ impl<T: Read + Seek> TiffParser<T> {
         format: [u8; 2],
         size: [u8; 4],
         addr: [u8; 4],
-    ) -> io::Result<Option<Box<[u8]>>> {
+    ) -> LogResult<Option<Box<[u8]>>> {
         let format_size = match format {
             [0x01, 0] => 1u32,
             [0x02, 0] => 1, // string
@@ -228,19 +229,19 @@ impl<T: Read + Seek> TiffParser<T> {
         let total_size = self.u32(size) * format_size;
         if total_size > 4 || format[0] == 0x02 {
             let addr = (self.u32(addr) as i32 + self.addr_shift) as u32;
-            let pos = self.reader.stream_position()?;
-            self.seek_ab(addr)?;
-            let actual_value = self.read_to_vec(total_size as usize)?;
-            self.seek_ab(pos as u32)?;
+            let pos = q!(self.reader.stream_position());
+            q!(self.seek_ab(addr));
+            let actual_value = q!(self.read_to_vec(total_size as usize));
+            q!(self.seek_ab(pos as u32));
             Ok(Some(actual_value.into()))
         } else {
             Ok(None)
         }
     }
 
-    fn parse_ifd(&mut self, path: Vec<u16>, collector: &mut Collector) -> io::Result<()> {
+    fn parse_ifd(&mut self, path: Vec<u16>, collector: &mut Collector) -> LogResult<()> {
         let entry_count = {
-            let x = self.read_shift::<2>()?;
+            let x = q!(self.read_shift::<2>());
             self.u16(x)
         };
 
@@ -250,13 +251,13 @@ impl<T: Read + Seek> TiffParser<T> {
 
         let mut dig_deep = vec![];
         for _ in 0..entry_count {
-            let tag = self.read_shift::<2>()?;
+            let tag = q!(self.read_shift::<2>());
             let tag = self.u16(tag);
 
-            let format = self.read_shift::<2>()?;
-            let size = self.read_shift::<4>()?;
-            let value = self.read_shift::<4>()?;
-            let actual_value = self.check_actual_value(format, size, value)?;
+            let format = q!(self.read_shift::<2>());
+            let size = q!(self.read_shift::<4>());
+            let value = q!(self.read_shift::<4>());
+            let actual_value = q!(self.check_actual_value(format, size, value));
 
             if let Some(&path_index) = self.path_map.get(path.as_slice()) {
                 collector.insert(
@@ -283,39 +284,39 @@ impl<T: Read + Seek> TiffParser<T> {
         }
 
         let next_ifd_offset = {
-            let x = self.read_shift::<4>()?;
+            let x = q!(self.read_shift::<4>());
             self.u32(x)
         };
         if next_ifd_offset != 0 && next_ifd_offset < 0xffffff {
-            self.seek_ab(next_ifd_offset)?;
+            q!(self.seek_ab(next_ifd_offset));
 
             let mut next_path = path.clone();
             if let Some(x) = next_path.last_mut() {
                 *x += 1;
             }
-            self.parse_ifd(next_path, collector)?;
+            q!(self.parse_ifd(next_path, collector));
         }
 
         for (addr, path) in dig_deep {
-            self.seek_ab(addr)?;
-            self.parse_ifd(path, collector)?;
+            q!(self.seek_ab(addr));
+            q!(self.parse_ifd(path, collector));
         }
 
         Ok(())
     }
 
-    fn parse(&mut self) -> io::Result<Collector> {
+    fn parse(&mut self) -> LogResult<Collector> {
         let mut result = HashMap::new();
 
         // shift to the first entry
-        self.seek_re(2)?;
+        q!(self.seek_re(2));
         let ifd_offset = {
-            let x = self.read_shift::<4>()?;
+            let x = q!(self.read_shift::<4>());
             self.u32(x)
         };
-        self.seek_ab(ifd_offset)?;
+        q!(self.seek_ab(ifd_offset));
 
-        self.parse_ifd(vec![0], &mut result)?;
+        q!(self.parse_ifd(vec![0], &mut result));
 
         Ok(result)
     }
@@ -324,7 +325,7 @@ impl<T: Read + Seek> TiffParser<T> {
         sr2private_index: u16, // the index of sr2private path in path_map
         path: Vec<u16>,
         collector: &mut Collector,
-    ) -> io::Result<()> {
+    ) -> LogResult<()> {
         match (
             collector.get(&(sr2private_index, 0x7200)),
             collector.get(&(sr2private_index, 0x7201)),
@@ -335,8 +336,8 @@ impl<T: Read + Seek> TiffParser<T> {
                 let length = self.u32(length_ifd.value);
                 let key = self.u32(key_ifd.value);
 
-                self.seek_ab(offset)?;
-                let sr2private_bytes = self.read_to_vec(length as usize)?;
+                q!(self.seek_ab(offset));
+                let sr2private_bytes = q!(self.read_to_vec(length as usize));
                 let decrypted = self.sony_decrypt(&sr2private_bytes, key);
                 let mut new_parser = TiffParser {
                     is_le: self.is_le,
@@ -345,7 +346,7 @@ impl<T: Read + Seek> TiffParser<T> {
                     reader: BufReader::new(std::io::Cursor::new(decrypted)),
                     path_map: self.path_map.clone(),
                 };
-                new_parser.parse_ifd(path, collector)?;
+                q!(new_parser.parse_ifd(path, collector));
             }
             _ => {}
         }
@@ -357,18 +358,18 @@ pub fn parse_exif<T: Read + Seek>(
     input: T,
     path_dig: &[&'static [u16]],
     sony_decrypt_index: Option<(u16, usize)>, // (sr2private_path_index, sr2private_offset_path_index)
-) -> R<Collector> {
+) -> Result<Collector, ErrLog> {
     let reader = BufReader::new(input);
 
-    let mut parser = TiffParser::new(reader, path_dig)?;
-    let mut result = parser.parse()?;
+    let mut parser = q!(TiffParser::new(reader, path_dig));
+    let mut result = q!(parser.parse());
 
     if let Some((sr2private_path_index, sr2private_offset_path_index)) = sony_decrypt_index {
-        parser.parse_sony_sr2private(
+        q!(parser.parse_sony_sr2private(
             sr2private_path_index,
             path_dig[sr2private_offset_path_index].to_vec(),
             &mut result,
-        )?;
+        ));
     }
 
     Ok(result)
@@ -379,7 +380,7 @@ macro_rules! gen_tags_info {
     [$($path:literal)->* { $($body:tt)* } $($tails:tt)*] => {
         gen_tags_info![@path(&[$($path),*],) @defs() @path_index(0; $($body)*) $($tails)*];
     };
-    
+
     [@path($($p:tt)*) @defs($($d:tt)*) @path_index($pi:expr;) $($path:literal)->* { $($body:tt)* } $($tails:tt)*] => {
         gen_tags_info![@path($($p)* &[$($path),*],) @defs($($d)*) @path_index($pi + 1; $($body)*) $($tails)*];
     };
