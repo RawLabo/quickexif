@@ -1,6 +1,5 @@
 use log::info;
 use std::{collections::HashMap, fs::File};
-
 // quickexif::describe_rule!(tiff {
 //     0x010f {
 //         str + 0 / make
@@ -90,31 +89,16 @@ use std::{collections::HashMap, fs::File};
 //     }
 // })
 
-macro_rules! gen_tags_mapping {
-    [$($path:literal)->* { $($body:tt)* } $($tails:tt)*] => {
-        gen_tags_mapping![@path(&[$($path),*],) @defs() @path_index(0; $($body)*) $($tails)*];
-    };
-    
-    [@path($($p:tt)*) @defs($($d:tt)*) @path_index($pi:expr;) $($path:literal)->* { $($body:tt)* } $($tails:tt)*] => {
-        gen_tags_mapping![@path($($p)* &[$($path),*],) @defs($($d)*) @path_index($pi + 1; $($body)*) $($tails)*];
-    };
-
-    [@path($($p:tt)*) @defs($($d:tt)*) @path_index($pi:expr; $tag:literal $id:ident $($inner_tails:tt)*) $($tails:tt)*] => {
-        gen_tags_mapping![@path($($p)*) @defs($($d)* pub const $id:&(u16, u16) = &($pi, $tag);) @path_index($pi; $($inner_tails)*) $($tails)*];
-    };
-
-    [@path($($p:tt)*) @defs($($d:tt)*) @path_index($pi:expr;)] => {
-        pub const PATH_LST : &[&'static [u16]] = &[$($p)*];
-        $($d)*
-    }
-}
-
 mod SonyTags {
     #![allow(non_upper_case_globals)]
-    gen_tags_mapping!(
+    use quickexif::gen_tags_info;
+
+    gen_tags_info!(
         0 -> 0xc634 -> 0 {}
         0 -> 0xc634 -> 0 -> 0x7200 -> 0xffff {
             0x7310 black_level
+            0x7312 white_balance
+            0x787f white_level
         }
         0 {
             0x010f make
@@ -138,14 +122,13 @@ mod SonyTags {
             0xc61f crop_xy
             0xc620 crop_wh
         }
-        1 {}
     );
 }
 
 #[test]
 fn parse_arw() -> quickexif::R<()> {
     env_logger::init();
-    let sample = "tests/samples/sample0.ARW";
+    let sample = "tests/samples/sample1.ARW";
     let f = File::open(sample)?;
 
     let result = quickexif::parse_exif(f, SonyTags::PATH_LST, Some((0, 1)))?;
@@ -171,6 +154,9 @@ fn parse_arw() -> quickexif::R<()> {
     info!("{:?}", result.get(SonyTags::crop_wh).and_then(|x| x.u32s()));
 
     info!("{:?}", result.get(SonyTags::black_level).and_then(|x| x.u16s()));
+
+    info!("{:?}", result.get(SonyTags::white_balance).and_then(|x| x.u16s()));
+    info!("{:?}", result.get(SonyTags::white_level).and_then(|x| x.u16s()));
 
     // let mut counter = HashMap::new();
     // for ((path_index, tag), ifd_item) in result.iter() {

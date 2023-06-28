@@ -373,3 +373,23 @@ pub fn parse_exif<T: Read + Seek>(
 
     Ok(result)
 }
+
+#[macro_export]
+macro_rules! gen_tags_info {
+    [$($path:literal)->* { $($body:tt)* } $($tails:tt)*] => {
+        gen_tags_info![@path(&[$($path),*],) @defs() @path_index(0; $($body)*) $($tails)*];
+    };
+    
+    [@path($($p:tt)*) @defs($($d:tt)*) @path_index($pi:expr;) $($path:literal)->* { $($body:tt)* } $($tails:tt)*] => {
+        gen_tags_info![@path($($p)* &[$($path),*],) @defs($($d)*) @path_index($pi + 1; $($body)*) $($tails)*];
+    };
+
+    [@path($($p:tt)*) @defs($($d:tt)*) @path_index($pi:expr; $tag:literal $id:ident $($inner_tails:tt)*) $($tails:tt)*] => {
+        gen_tags_info![@path($($p)*) @defs($($d)* pub const $id:&(u16, u16) = &($pi, $tag);) @path_index($pi; $($inner_tails)*) $($tails)*];
+    };
+
+    [@path($($p:tt)*) @defs($($d:tt)*) @path_index($pi:expr;)] => {
+        pub const PATH_LST : &[&'static [u16]] = &[$($p)*];
+        $($d)*
+    }
+}
