@@ -23,6 +23,10 @@ mod jpg_tags {
             0xa002 width
             0xa003 height
         }
+        1 {
+            0x0201 thumb_addr
+            0x0202 thumb_len
+        }
     );
 }
 
@@ -44,6 +48,8 @@ fn parse_jpg() -> LogResult<()> {
     info!("{:?}", result.get(jpg_tags::focal_length).and_then(|x| x.r64s()));
     info!("{:?}", result.get(jpg_tags::width).map(|x| x.u32()));
     info!("{:?}", result.get(jpg_tags::height).map(|x| x.u32()));
+    info!("{:?}", result.get(jpg_tags::thumb_addr).map(|x| x.u32()));
+    info!("{:?}", result.get(jpg_tags::thumb_len).map(|x| x.u32()));
 
     Ok(())
 }

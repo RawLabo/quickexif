@@ -39,7 +39,7 @@ mod panasonic_tags {
 }
 
 #[test]
-fn parse_arw() -> LogResult<()> {
+fn parse_rw2() -> LogResult<()> {
     env_logger::init();
     let sample = "tests/samples/sample0.RW2";
     let f = q!(File::open(sample));

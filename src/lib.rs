@@ -201,8 +201,16 @@ impl<T: Read + Seek> TiffParser<T> {
             let mut header = [0u8; 2];
             q!(reader.read_exact(&mut header));
             if header == [0xff, 0xd8] {
-                q!(reader.seek_relative(10));
-                12
+                let mut header = [0u8; 2];
+                q!(reader.read_exact(&mut header));
+
+                if header == [0xff, 0xe0] { // is JFIF
+                    q!(reader.seek_relative(26));
+                    30
+                } else { // is EXIF
+                    q!(reader.seek_relative(8));
+                    12
+                }
             } else {
                 q!(reader.seek_relative(-2));
                 0
