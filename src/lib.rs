@@ -10,6 +10,12 @@ use std::{
     io::{BufReader, Read, Seek},
 };
 
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("Invalid Tiff header: {0:#x?}")]
+    InvalidTiffHeader([u8; 2])
+}
+
 #[derive(Debug)]
 pub struct IFDItem {
     is_le: bool,
@@ -206,7 +212,11 @@ impl<T: Read + Seek> TiffParser<T> {
         let is_le = {
             let mut header = [0u8; 2];
             q!(reader.read_exact(&mut header));
-            header == [0x49, 0x49]
+            match header {
+                [0x49, 0x49] => true,
+                [0x4d, 0x4d] => false,
+                _ => q!(Err(Error::InvalidTiffHeader(header)))
+            }
         };
 
         let path_map = path_lst
