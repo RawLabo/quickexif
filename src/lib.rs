@@ -105,7 +105,7 @@ impl IFDItem {
 
 struct TiffParser<T: Read + Seek> {
     is_le: bool,
-    addr_shift: i32, // shift for actual value address
+    addr_offset: i32, // offset for actual value address, useful for internal tiff blocks
     reader: BufReader<T>,
     path_map: HashMap<&'static [u16], u16>,
 }
@@ -170,7 +170,7 @@ impl<T: Read + Seek> TiffParser<T> {
         q!(self.reader.read_exact(&mut ret));
         Ok(ret)
     }
-    fn _read_no_shift<const N: usize>(&mut self) -> LogResult<[u8; N]> {
+    fn read_no_shift<const N: usize>(&mut self) -> LogResult<[u8; N]> {
         let ret = self.read_shift();
         q!(self.reader.seek_relative(N as i64 * -1));
         ret
@@ -179,7 +179,7 @@ impl<T: Read + Seek> TiffParser<T> {
         let pos = q!(self.reader.stream_position());
         q!(self
             .reader
-            .seek_relative(loc as i64 - pos as i64 + self.addr_shift as i64));
+            .seek_relative(loc as i64 - pos as i64 + self.addr_offset as i64));
         Ok(())
     }
     fn recover_pos(&mut self, loc: u64) -> LogResult<()> {
@@ -212,6 +212,7 @@ impl<T: Read + Seek> TiffParser<T> {
         let is_le = {
             let mut header = [0u8; 2];
             q!(reader.read_exact(&mut header));
+            q!(reader.seek_relative(-2));
             match header {
                 [0x49, 0x49] => true,
                 [0x4d, 0x4d] => false,
@@ -228,7 +229,7 @@ impl<T: Read + Seek> TiffParser<T> {
 
         Ok(Self {
             is_le,
-            addr_shift,
+            addr_offset: addr_shift,
             reader,
             path_map,
         })
@@ -241,10 +242,10 @@ impl<T: Read + Seek> TiffParser<T> {
         addr: [u8; 4],
     ) -> LogResult<Option<Box<[u8]>>> {
         let format_size = match format {
-            [0x01, 0] => 1u32,
+            [0x01, 0] => 1u32, // u8
             [0x02, 0] => 1, // string
-            [0x03, 0] => 2,
-            [0x04, 0] => 4,
+            [0x03, 0] => 2, // u16
+            [0x04, 0] => 4, // u32
             [0x05, 0] => 8,
             [0x06, 0] => 1,
             [0x07, 0] => 0,
@@ -328,24 +329,41 @@ impl<T: Read + Seek> TiffParser<T> {
             q!(self.parse_ifd(next_path, collector));
         }
 
+        let addr_offset = self.addr_offset;
         for (addr, path) in dig_deep {
+            self.addr_offset = addr_offset; // offset recover
             q!(self.seek_ab(addr));
+
+            // detect if is jpg header
+            if q!(self.read_no_shift::<2>()) == [0xff, 0xd8] {
+                q!(self.seek_re(12)); // pass JPEG header
+                self.addr_offset = q!(self.reader.stream_position()) as i32;
+                q!(self.shift_from_tiff_header());
+            }
+            // detect if is panasonic makernotes
+            if q!(self.read_no_shift::<4>()) == [0x50, 0x61, 0x6e, 0x61] {
+                q!(self.seek_re(12)); // pass makernotes header
+            }
+
             q!(self.parse_ifd(path, collector));
         }
 
         Ok(())
     }
 
-    fn parse(&mut self) -> LogResult<Collector> {
-        let mut result = HashMap::new();
-
-        // shift to the first entry
-        q!(self.seek_re(2));
+    fn shift_from_tiff_header(&mut self) -> LogResult<()> {
+        q!(self.seek_re(4));
         let ifd_offset = {
             let x = q!(self.read_shift::<4>());
             self.u32(x)
         };
         q!(self.seek_ab(ifd_offset));
+        Ok(())
+    }
+    fn parse(&mut self) -> LogResult<Collector> {
+        let mut result = HashMap::new();
+
+        q!(self.shift_from_tiff_header());
 
         q!(self.parse_ifd(vec![0], &mut result));
 
@@ -372,7 +390,7 @@ impl<T: Read + Seek> TiffParser<T> {
                 let decrypted = self.sony_decrypt(&sr2private_bytes, key);
                 let mut new_parser = TiffParser {
                     is_le: self.is_le,
-                    addr_shift: -(offset as i32),
+                    addr_offset: -(offset as i32),
                     reader: BufReader::new(std::io::Cursor::new(decrypted)),
                     path_map: self.path_map.clone(),
                 };
