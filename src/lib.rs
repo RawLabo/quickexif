@@ -1,11 +1,14 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
 pub mod log_helper;
 
+use log::info;
+use log_helper::*;
 use std::{
     collections::HashMap,
     io::{BufReader, Read, Seek},
 };
-
-use log_helper::*;
 
 #[derive(Debug)]
 pub struct IFDItem {
@@ -96,7 +99,6 @@ impl IFDItem {
 
 struct TiffParser<T: Read + Seek> {
     is_le: bool,
-    init_pos: i64,
     addr_shift: i32, // shift for actual value address
     reader: BufReader<T>,
     path_map: HashMap<&'static [u16], u16>,
@@ -171,20 +173,40 @@ impl<T: Read + Seek> TiffParser<T> {
         let pos = q!(self.reader.stream_position());
         q!(self
             .reader
-            .seek_relative(self.init_pos + loc as i64 - pos as i64));
+            .seek_relative(loc as i64 - pos as i64 + self.addr_shift as i64));
         Ok(())
     }
+    fn recover_pos(&mut self, loc: u64) -> LogResult<()> {
+        let pos = q!(self.reader.stream_position());
+        q!(self
+            .reader
+            .seek_relative(loc as i64 - pos as i64));
+        Ok(())
+    }
+
     fn seek_re(&mut self, loc: i64) -> LogResult<()> {
-        q!(self.reader.seek_relative(self.init_pos + loc));
+        q!(self.reader.seek_relative(loc));
         Ok(())
     }
 
     fn new(mut reader: BufReader<T>, path_lst: impl AsRef<[&'static [u16]]>) -> LogResult<Self> {
-        let init_pos = q!(reader.stream_position());
+        // jpg detect
+        let addr_shift = {
+            let mut header = [0u8; 2];
+            q!(reader.read_exact(&mut header));
+            if header == [0xff, 0xd8] {
+                q!(reader.seek_relative(10));
+                12
+            } else {
+                q!(reader.seek_relative(-2));
+                0
+            }
+        };
+
         let is_le = {
             let mut header = [0u8; 2];
             q!(reader.read_exact(&mut header));
-            header == [0x49u8, 0x49]
+            header == [0x49, 0x49]
         };
 
         let path_map = path_lst
@@ -196,8 +218,7 @@ impl<T: Read + Seek> TiffParser<T> {
 
         Ok(Self {
             is_le,
-            init_pos: init_pos as i64,
-            addr_shift: 0,
+            addr_shift,
             reader,
             path_map,
         })
@@ -228,11 +249,11 @@ impl<T: Read + Seek> TiffParser<T> {
         };
         let total_size = self.u32(size) * format_size;
         if total_size > 4 || format[0] == 0x02 {
-            let addr = (self.u32(addr) as i32 + self.addr_shift) as u32;
+            let addr = self.u32(addr);
             let pos = q!(self.reader.stream_position());
             q!(self.seek_ab(addr));
             let actual_value = q!(self.read_to_vec(total_size as usize));
-            q!(self.seek_ab(pos as u32));
+            q!(self.recover_pos(pos));
             Ok(Some(actual_value.into()))
         } else {
             Ok(None)
@@ -341,7 +362,6 @@ impl<T: Read + Seek> TiffParser<T> {
                 let decrypted = self.sony_decrypt(&sr2private_bytes, key);
                 let mut new_parser = TiffParser {
                     is_le: self.is_le,
-                    init_pos: 0,
                     addr_shift: -(offset as i32),
                     reader: BufReader::new(std::io::Cursor::new(decrypted)),
                     path_map: self.path_map.clone(),
@@ -358,7 +378,7 @@ pub fn parse_exif<T: Read + Seek>(
     input: T,
     path_dig: &[&'static [u16]],
     sony_decrypt_index: Option<(u16, usize)>, // (sr2private_path_index, sr2private_offset_path_index)
-) -> Result<Collector, ErrLog> {
+) -> LogResult<Collector> {
     let reader = BufReader::new(input);
 
     let mut parser = q!(TiffParser::new(reader, path_dig));
