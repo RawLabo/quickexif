@@ -1,14 +1,15 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-pub mod log_helper;
-
-use log::info;
-use log_helper::*;
+use phf::phf_map;
 use std::{
     collections::HashMap,
     io::{BufReader, Read, Seek},
 };
+
+pub mod log_helper;
+use log::info;
+use log_helper::*;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -140,6 +141,12 @@ macro_rules! to_bytes {
         }
     }};
 }
+
+/// first 4 bytes => (shift N bytes, needs to add makernotes' offset)
+static MAKERNOTES_HEADER_SIZE : phf::Map<[u8; 4], (i64, bool)> = phf_map! {
+    [0x50, 0x61, 0x6e, 0x61] => (12, false), // panasonic
+    [0x4f, 0x4c, 0x59, 0x4d] => (12, true), // olympus
+};
 
 type Collector = HashMap<(u16, u16), IFDItem>;
 
@@ -358,9 +365,13 @@ impl<T: Read + Seek> TiffParser<T> {
                 self.addr_offset = q!(self.reader.stream_position()) as i32;
                 q!(self.shift_from_tiff_header());
             }
-            // detect if is panasonic makernotes
-            if q!(self.read_no_shift::<4>()) == [0x50, 0x61, 0x6e, 0x61] {
-                q!(self.seek_re(12)); // pass makernotes header
+            // detect if is makernotes
+            let check = q!(self.read_no_shift::<4>());
+            if let Some(&(shift, should_offset)) = MAKERNOTES_HEADER_SIZE.get(&check) {
+                if should_offset {
+                    self.addr_offset += q!(self.reader.stream_position()) as i32;
+                }
+                q!(self.seek_re(shift));
             }
 
             q!(self.parse_ifd(path, collector));
