@@ -27,8 +27,11 @@ pub struct IFDItem {
 }
 
 impl IFDItem {
-    pub fn raw(&self) -> [u8; 4] {
-        self.value
+    pub fn raw(&self) -> &[u8] {
+        match self.actual_value.as_ref() {
+            Some(x) => x,
+            None => &self.value 
+        }
     }
     pub fn size(&self) -> u32 {
         if self.is_le {
@@ -263,7 +266,7 @@ impl<T: Read + Seek> TiffParser<T> {
             [0x04, 0] => 4, // u32
             [0x05, 0] => 8,
             [0x06, 0] => 1,
-            [0x07, 0] => 0,
+            [0x07, 0] => 1,
             [0x08, 0] => 2,
             [0x09, 0] => 4,
             [0x0a, 0] => 8,
