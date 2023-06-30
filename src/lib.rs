@@ -30,6 +30,13 @@ impl IFDItem {
     pub fn raw(&self) -> [u8; 4] {
         self.value
     }
+    pub fn size(&self) -> u32 {
+        if self.is_le {
+            u32::from_le_bytes(self.size)
+        } else {
+            u32::from_be_bytes(self.size)
+        }
+    }
     pub fn u16(&self) -> u16 {
         let v = [self.value[0], self.value[1]];
         if self.is_le {

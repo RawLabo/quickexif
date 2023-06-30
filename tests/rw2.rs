@@ -28,6 +28,7 @@ mod panasonic_tags {
             0x0031 crop_bottom
             0x0032 crop_right
             0x0112 orientation
+            0x002e thumbnail
         }
         0 -> 0x002e -> 0 {}
         0 -> 0x002e -> 0 -> 0x8769 -> 0 {}
@@ -65,6 +66,7 @@ fn parse_rw2() -> LogResult<()> {
     info!("{:?}", result.get(panasonic_tags::orientation).map(|x| x.u16()));
     info!("{:?}", result.get(panasonic_tags::cropped_width).map(|x| x.u32()));
     info!("{:?}", result.get(panasonic_tags::cropped_height).map(|x| x.u32()));
+    info!("{:?}", result.get(panasonic_tags::thumbnail).map(|x| (x.u32(), x.size())));
 
     Ok(())
 }
