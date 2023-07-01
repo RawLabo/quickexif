@@ -143,9 +143,10 @@ macro_rules! to_bytes {
 }
 
 /// first 4 bytes => (shift N bytes, needs to add makernotes' offset)
-static MAKERNOTES_HEADER_SIZE: phf::Map<[u8; 4], (i64, bool)> = phf_map! {
-    [0x50, 0x61, 0x6e, 0x61] => (12, false), // panasonic
-    [0x4f, 0x4c, 0x59, 0x4d] => (12, true), // olympus
+static MAKERNOTES_HEADER_SIZE: phf::Map<[u8; 4], (i64, Option<i32>)> = phf_map! {
+    [0x50, 0x61, 0x6e, 0x61] => (12, None), // panasonic
+    [0x4f, 0x4c, 0x59, 0x4d] => (12, Some(0)), // olympus
+    [0x4e, 0x69, 0x6b, 0x6f] => (18, Some(10)), // nikon
 };
 
 type Collector = HashMap<(u16, u16), IFDItem>;
@@ -378,9 +379,9 @@ impl<T: Read + Seek> TiffParser<T> {
             }
             // detect if is makernotes
             let check = q!(self.read_no_shift::<4>());
-            if let Some(&(shift, should_offset)) = MAKERNOTES_HEADER_SIZE.get(&check) {
-                if should_offset {
-                    self.addr_offset += q!(self.reader.stream_position()) as i32;
+            if let Some(&(shift, addr_offset)) = MAKERNOTES_HEADER_SIZE.get(&check) {
+                if let Some(offset) = addr_offset {
+                    self.addr_offset += q!(self.reader.stream_position()) as i32 + offset;
                 }
                 q!(self.seek_re(shift));
             }
