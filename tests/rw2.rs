@@ -49,7 +49,7 @@ fn parse_rw2() -> LogResult<()> {
 
     info!("{:?}", result.get(panasonic_tags::width).map(|x| x.u32()));
     info!("{:?}", result.get(panasonic_tags::height).map(|x| x.u32()));
-    info!("{:?}", result.get(panasonic_tags::cfa_pattern).map(|x| x.raw()));
+    info!("{:?}", result.get(panasonic_tags::cfa_pattern).map(|x| x.u16()));
     info!("{:?}", result.get(panasonic_tags::bps).map(|x| x.u16()));
     info!("{:?}", result.get(panasonic_tags::black_level_r).map(|x| x.u16()));
     info!("{:?}", result.get(panasonic_tags::black_level_g).map(|x| x.u16()));

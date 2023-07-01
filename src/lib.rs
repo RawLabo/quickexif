@@ -14,7 +14,7 @@ use log_helper::*;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Invalid Tiff header: {0:#x?}")]
-    InvalidTiffHeader([u8; 2])
+    InvalidTiffHeader([u8; 2]),
 }
 
 #[derive(Debug)]
@@ -31,7 +31,7 @@ impl IFDItem {
     pub fn raw(&self) -> &[u8] {
         match self.actual_value.as_ref() {
             Some(x) => x,
-            None => &self.value 
+            None => &self.value,
         }
     }
     pub fn size(&self) -> u32 {
@@ -143,7 +143,7 @@ macro_rules! to_bytes {
 }
 
 /// first 4 bytes => (shift N bytes, needs to add makernotes' offset)
-static MAKERNOTES_HEADER_SIZE : phf::Map<[u8; 4], (i64, bool)> = phf_map! {
+static MAKERNOTES_HEADER_SIZE: phf::Map<[u8; 4], (i64, bool)> = phf_map! {
     [0x50, 0x61, 0x6e, 0x61] => (12, false), // panasonic
     [0x4f, 0x4c, 0x59, 0x4d] => (12, true), // olympus
 };
@@ -201,9 +201,7 @@ impl<T: Read + Seek> TiffParser<T> {
     }
     fn recover_pos(&mut self, loc: u64) -> LogResult<()> {
         let pos = q!(self.reader.stream_position());
-        q!(self
-            .reader
-            .seek_relative(loc as i64 - pos as i64));
+        q!(self.reader.seek_relative(loc as i64 - pos as i64));
         Ok(())
     }
 
@@ -221,10 +219,12 @@ impl<T: Read + Seek> TiffParser<T> {
                 let mut header = [0u8; 2];
                 q!(reader.read_exact(&mut header));
 
-                if header == [0xff, 0xe0] { // is JFIF
+                if header == [0xff, 0xe0] {
+                    // is JFIF
                     q!(reader.seek_relative(26));
                     30
-                } else { // is EXIF
+                } else {
+                    // is EXIF
                     q!(reader.seek_relative(8));
                     12
                 }
@@ -241,7 +241,7 @@ impl<T: Read + Seek> TiffParser<T> {
             match header {
                 [0x49, 0x49] => true,
                 [0x4d, 0x4d] => false,
-                _ => q!(Err(Error::InvalidTiffHeader(header)))
+                _ => q!(Err(Error::InvalidTiffHeader(header))),
             }
         };
 
@@ -266,25 +266,26 @@ impl<T: Read + Seek> TiffParser<T> {
         size: [u8; 4],
         addr: [u8; 4],
     ) -> LogResult<Option<Box<[u8]>>> {
+        let format = self.u16(format);
         let format_size = match format {
-            [0x01, 0] => 1u32, // u8
-            [0x02, 0] => 1, // string
-            [0x03, 0] => 2, // u16
-            [0x04, 0] => 4, // u32
-            [0x05, 0] => 8,
-            [0x06, 0] => 1,
-            [0x07, 0] => 1,
-            [0x08, 0] => 2,
-            [0x09, 0] => 4,
-            [0x0a, 0] => 8,
-            [0x0b, 0] => 4,
-            [0x0c, 0] => 8,
-            [0x0d, 0] => 4,
-            [0x0e, 0] => 8,
+            0x0001 => 1u32, // u8
+            0x0002 => 1,    // string
+            0x0003 => 2,    // u16
+            0x0004 => 4,    // u32
+            0x0005 => 8,
+            0x0006 => 1,
+            0x0007 => 1,
+            0x0008 => 2,
+            0x0009 => 4,
+            0x000a => 8,
+            0x000b => 4,
+            0x000c => 8,
+            0x000d => 4,
+            0x000e => 8,
             _ => 1,
         };
         let total_size = self.u32(size) * format_size;
-        if total_size > 4 || format[0] == 0x02 {
+        if total_size > 4 || format == 0x0002 {
             let addr = self.u32(addr);
             let pos = q!(self.reader.stream_position());
             q!(self.seek_ab(addr));
@@ -316,27 +317,37 @@ impl<T: Read + Seek> TiffParser<T> {
             let value = q!(self.read_shift::<4>());
             let actual_value = q!(self.check_actual_value(format, size, value));
 
-            if let Some(&path_index) = self.path_map.get(path.as_slice()) {
-                collector.insert(
-                    (path_index, tag),
-                    IFDItem {
-                        is_le: self.is_le,
-                        tag,
-                        format,
-                        size,
-                        value,
-                        actual_value,
-                    },
-                );
-            }
+            let ifd_item = IFDItem {
+                is_le: self.is_le,
+                tag,
+                format,
+                size,
+                value,
+                actual_value,
+            };
 
-            // save addr and path for later deeper digging
+            // switch to the current tag
             if let Some(x) = path_deep.get_mut(path_deep_len..) {
                 x[0] = tag;
             }
+            // save addr and path for later deeper digging
             if self.path_map.contains_key(path_deep.as_slice()) {
-                let addr = self.u32(value);
-                dig_deep.push((addr, path_deep.clone()));
+                if let (Some(addrs), 0x0004) = (ifd_item.u32s(), self.u16(format)) {
+                    dig_deep.extend(addrs.into_iter().enumerate().map(|(i, addr)| {
+                        let mut path = path_deep.clone();
+                        if let Some(last) = path.last_mut() {
+                            *last = (i * 100) as u16; // set path ifd id to 0, 100, 200, 300
+                        }
+                        (*addr, path)
+                    }))
+                } else {
+                    let addr = self.u32(value);
+                    dig_deep.push((addr, path_deep.clone()));
+                }
+            }
+
+            if let Some(&path_index) = self.path_map.get(path.as_slice()) {
+                collector.insert((path_index, tag), ifd_item);
             }
         }
 
