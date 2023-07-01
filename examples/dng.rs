@@ -19,7 +19,11 @@ mod adobe_tags {
 
             0x0112 orientation
             0xc628 white_balance
-
+ 
+            0x0100 width0
+            0x0101 height0
+            0x0102 bps0
+            0x0103 compression0
             0x0111 thumbnail0
             0x0117 thumbnail_len0
             0x828e cfa_pattern0
@@ -33,6 +37,10 @@ mod adobe_tags {
             0xc620 crop_size0
         }
         0 -> 0x014a -> 0 {
+            0x0100 width1
+            0x0101 height1
+            0x0102 bps1
+            0x0103 compression1
             0x0111 thumbnail1
             0x0117 thumbnail_len1
             0x828e cfa_pattern1
@@ -46,6 +54,10 @@ mod adobe_tags {
             0xc620 crop_size1
         }
         0 -> 0x014a -> 100 {
+            0x0100 width2
+            0x0101 height2
+            0x0102 bps2
+            0x0103 compression2
             0x0111 thumbnail2
             0x0117 thumbnail_len2
             0x828e cfa_pattern2
@@ -59,6 +71,10 @@ mod adobe_tags {
             0xc620 crop_size2
         }
         0 -> 0x014a -> 200 {
+            0x0100 width3
+            0x0101 height3
+            0x0102 bps3
+            0x0103 compression3
             0x0111 thumbnail3
             0x0117 thumbnail_len3
             0x828e cfa_pattern3
@@ -90,6 +106,11 @@ fn main() -> LogResult<()> {
     if result.get(adobe_tags::cfa_pattern0).is_some() {
         println!("{:?}", result.get(adobe_tags::thumbnail0).map(|x| x.u32()));
         println!("{:?}", result.get(adobe_tags::thumbnail_len0).map(|x| x.u32()));
+
+        println!("{:?}", result.get(adobe_tags::width0).map(|x| x.u32()));
+        println!("{:?}", result.get(adobe_tags::height0).map(|x| x.u32()));
+        println!("{:?}", result.get(adobe_tags::bps0).map(|x| x.u16()));
+        println!("{:?}", result.get(adobe_tags::compression0).map(|x| x.u16()));
         println!("{:?}", result.get(adobe_tags::cfa_pattern0).map(|x| x.raw()));
         println!("{:?}", result.get(adobe_tags::tile_offsets0).and_then(|x| x.u32s()));
         println!("{:?}", result.get(adobe_tags::tile_byte_counts0).and_then(|x| x.u32s()));
@@ -104,6 +125,11 @@ fn main() -> LogResult<()> {
     if result.get(adobe_tags::cfa_pattern1).is_some() {
         println!("{:?}", result.get(adobe_tags::thumbnail2).map(|x| x.u32()));
         println!("{:?}", result.get(adobe_tags::thumbnail_len2).map(|x| x.u32()));
+
+        println!("{:?}", result.get(adobe_tags::width1).map(|x| x.u32()));
+        println!("{:?}", result.get(adobe_tags::height1).map(|x| x.u32()));
+        println!("{:?}", result.get(adobe_tags::bps1).map(|x| x.u16()));
+        println!("{:?}", result.get(adobe_tags::compression1).map(|x| x.u16()));
         println!("{:?}", result.get(adobe_tags::cfa_pattern1).map(|x| x.raw()));
         println!("{:?}", result.get(adobe_tags::tile_offsets1).and_then(|x| x.u32s()));
         println!("{:?}", result.get(adobe_tags::tile_byte_counts1).and_then(|x| x.u32s()));
