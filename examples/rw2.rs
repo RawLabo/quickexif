@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use std::{collections::HashMap, fs::File};
+use std::{collections::HashMap, fs::File, io::BufReader};
 use quickexif::log_helper::*;
 
 mod panasonic_tags {
@@ -40,9 +40,9 @@ mod panasonic_tags {
 
 fn main() -> LogResult<()> {
     let sample = "examples/samples/sample0.RW2";
-    let f = q!(File::open(sample));
+    let reader = BufReader::new(q!(File::open(sample)));
 
-    let result = q!(quickexif::parse_exif(f, panasonic_tags::PATH_LST, None));
+    let result = q!(quickexif::parse_exif(reader, panasonic_tags::PATH_LST, None));
 
     println!("{:?}", result.get(panasonic_tags::width).map(|x| x.u32()));
     println!("{:?}", result.get(panasonic_tags::height).map(|x| x.u32()));

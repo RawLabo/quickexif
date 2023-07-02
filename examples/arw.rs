@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use std::{collections::HashMap, fs::File};
+use std::{collections::HashMap, fs::File, io::BufReader};
 use quickexif::log_helper::*;
 
 mod sony_tags {
@@ -42,9 +42,9 @@ mod sony_tags {
 
 fn main() -> LogResult<()> {
     let sample = "examples/samples/sample1.ARW";
-    let f = q!(File::open(sample));
+    let reader = BufReader::new(q!(File::open(sample)));
 
-    let result = q!(quickexif::parse_exif(f, sony_tags::PATH_LST, Some((0, 1))));
+    let result = q!(quickexif::parse_exif(reader, sony_tags::PATH_LST, Some((0, 1))));
 
     println!("{:?}", result.get(sony_tags::make).and_then(|x| x.str()));
     println!("{:?}", result.get(sony_tags::model).and_then(|x| x.str()));

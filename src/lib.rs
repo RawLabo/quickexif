@@ -56,14 +56,10 @@ impl IFDItem {
             u32::from_be_bytes(self.value)
         }
     }
-    pub fn str(&self) -> Option<String> {
-        self.actual_value.as_ref().map(|bytes| {
-            bytes
-                .iter()
-                .take(bytes.len() - 1)
-                .map(|&x| x as char)
-                .collect()
-        })
+    pub fn str(&self) -> Option<&str> {
+        self.actual_value
+            .as_ref()
+            .and_then(|bytes| std::str::from_utf8(bytes).ok())
     }
     pub fn u16s(&self) -> Option<Box<[u16]>> {
         self.actual_value.as_ref().map(|bytes| {
@@ -212,26 +208,44 @@ impl<T: Read + Seek> TiffParser<T> {
     }
 
     fn new(mut reader: BufReader<T>, path_lst: impl AsRef<[&'static [u16]]>) -> LogResult<Self> {
-        // jpg detect
-        let addr_shift = {
-            let mut header = [0u8; 2];
-            q!(reader.read_exact(&mut header));
-            if header == [0xff, 0xd8] {
+        let init_pos = q!(reader.stream_position());
+        let addr_offset = if init_pos > 0 {
+            init_pos as i32
+        } else {
+            // fuji raf detect
+            let addr_offset = {
+                let mut header = [0u8; 4];
+                q!(reader.read_exact(&mut header));
+                if header == [0x46, 0x55, 0x4a, 0x49] {
+                    q!(reader.seek_relative(144));
+                    148
+                } else {
+                    q!(reader.seek_relative(-4));
+                    0
+                }
+            };
+
+            // jpg detect
+            addr_offset + {
                 let mut header = [0u8; 2];
                 q!(reader.read_exact(&mut header));
+                if header == [0xff, 0xd8] {
+                    let mut header = [0u8; 2];
+                    q!(reader.read_exact(&mut header));
 
-                if header == [0xff, 0xe0] {
-                    // is JFIF
-                    q!(reader.seek_relative(26));
-                    30
+                    if header == [0xff, 0xe0] {
+                        // is JFIF
+                        q!(reader.seek_relative(26));
+                        30
+                    } else {
+                        // is EXIF
+                        q!(reader.seek_relative(8));
+                        12
+                    }
                 } else {
-                    // is EXIF
-                    q!(reader.seek_relative(8));
-                    12
+                    q!(reader.seek_relative(-2));
+                    0
                 }
-            } else {
-                q!(reader.seek_relative(-2));
-                0
             }
         };
 
@@ -255,7 +269,7 @@ impl<T: Read + Seek> TiffParser<T> {
 
         Ok(Self {
             is_le,
-            addr_offset: addr_shift,
+            addr_offset,
             reader,
             path_map,
         })
@@ -444,12 +458,10 @@ impl<T: Read + Seek> TiffParser<T> {
 }
 
 pub fn parse_exif<T: Read + Seek>(
-    input: T,
+    reader: BufReader<T>,
     path_dig: &[&'static [u16]],
     sony_decrypt_index: Option<(u16, usize)>, // (sr2private_path_index, sr2private_offset_path_index)
 ) -> LogResult<Collector> {
-    let reader = BufReader::new(input);
-
     let mut parser = q!(TiffParser::new(reader, path_dig));
     let mut result = q!(parser.parse());
 

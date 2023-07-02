@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use std::{collections::HashMap, fs::File};
+use std::{collections::HashMap, fs::File, io::BufReader};
 use quickexif::log_helper::*;
 
 mod nikon_tags {
@@ -39,9 +39,9 @@ mod nikon_tags {
 
 fn main() -> LogResult<()> {
     let sample = "examples/samples/sample0.NEF";
-    let f = q!(File::open(sample));
+    let reader = BufReader::new(q!(File::open(sample)));
 
-    let result = q!(quickexif::parse_exif(f, nikon_tags::PATH_LST, None));
+    let result = q!(quickexif::parse_exif(reader, nikon_tags::PATH_LST, None));
 
     println!("{:?}", result.get(nikon_tags::orientation).map(|x| x.u16()));
     println!("{:?}", result.get(nikon_tags::thumbnail).map(|x| x.u32()));
