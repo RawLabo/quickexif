@@ -15,6 +15,8 @@ use log_helper::*;
 pub enum Error {
     #[error("Invalid Tiff header: {0:#x?}")]
     InvalidTiffHeader([u8; 2]),
+    #[error("Part({0}) is not defined for this file type")]
+    PartNotDefined(u8),
 }
 
 #[derive(Debug)]
@@ -209,43 +211,26 @@ impl<T: Read + Seek> TiffParser<T> {
 
     fn new(mut reader: BufReader<T>, path_lst: impl AsRef<[&'static [u16]]>) -> LogResult<Self> {
         let init_pos = q!(reader.stream_position());
-        let addr_offset = if init_pos > 0 {
-            init_pos as i32
-        } else {
-            // fuji raf detect
-            let addr_offset = {
-                let mut header = [0u8; 4];
-                q!(reader.read_exact(&mut header));
-                if header == [0x46, 0x55, 0x4a, 0x49] {
-                    q!(reader.seek_relative(144));
-                    148
-                } else {
-                    q!(reader.seek_relative(-4));
-                    0
-                }
-            };
-
+        let addr_offset = init_pos as i32 + {
             // jpg detect
-            addr_offset + {
+            let mut header = [0u8; 2];
+            q!(reader.read_exact(&mut header));
+            if header == [0xff, 0xd8] {
                 let mut header = [0u8; 2];
                 q!(reader.read_exact(&mut header));
-                if header == [0xff, 0xd8] {
-                    let mut header = [0u8; 2];
-                    q!(reader.read_exact(&mut header));
 
-                    if header == [0xff, 0xe0] {
-                        // is JFIF
-                        q!(reader.seek_relative(26));
-                        30
-                    } else {
-                        // is EXIF
-                        q!(reader.seek_relative(8));
-                        12
-                    }
+                if header == [0xff, 0xe0] {
+                    // is JFIF
+                    q!(reader.seek_relative(26));
+                    30
                 } else {
-                    q!(reader.seek_relative(-2));
-                    0
+                    // is EXIF
+                    q!(reader.seek_relative(8));
+                    12
                 }
+            } else {
+                q!(reader.seek_relative(-2));
+                0
             }
         };
 
@@ -474,6 +459,78 @@ pub fn parse_exif<T: Read + Seek>(
     }
 
     Ok(result)
+}
+
+fn seek_tiff_header<T: Read + Seek>(reader: &mut BufReader<T>) -> LogResult<()> {
+    loop {
+        let mut x = [0u8; 4];
+        q!(reader.read_exact(&mut x));
+        if x == [0x49, 0x49, 0x2a, 0x00] {
+            q!(reader.seek_relative(-4));
+            break Ok(());
+        }
+    }
+}
+
+fn seek_cr3_cmt<T: Read + Seek>(reader: &mut BufReader<T>, no: u8) -> LogResult<()> {
+    loop {
+        let mut x = [0u8; 4];
+        q!(reader.read_exact(&mut x));
+        if x == [0x43, 0x4d, 0x54, no] {
+            break Ok(());
+        }
+    }
+}
+fn seek_cr3_header<T: Read + Seek>(reader: &mut BufReader<T>, index: i8) -> LogResult<()> {
+    q!(reader.seek_relative(0x1a00002i64));
+    let mut curr = -1i8;
+    while curr < index {
+        let mut x = [0u8; 4];
+        q!(reader.read_exact(&mut x));
+        if x == [0x7c, 0x92, 0, 0] {
+            curr += 1;
+        }
+    }
+    Ok(())
+}
+
+pub fn seek_header_cr3<T: Read + Seek>(reader: &mut BufReader<T>, part: u8) -> LogResult<()> {
+    match part {
+        0 => {
+            q!(seek_cr3_cmt(reader, 0x31));
+        }
+        1 => {
+            q!(seek_cr3_cmt(reader, 0x32));
+        }
+        2 => {
+            q!(seek_cr3_cmt(reader, 0x33));
+        }
+        3 => {
+            q!(seek_cr3_header(reader, 0));
+        }
+        4 => {
+            q!(seek_cr3_header(reader, 1));
+        }
+        _ => q!(Err(Error::PartNotDefined(part))),
+    }
+    Ok(())
+}
+
+pub fn seek_header_raf<T: Read + Seek>(reader: &mut BufReader<T>, part: u8) -> LogResult<()> {
+    match part {
+        0 => {
+            // cut first 148 bytes
+            q!(reader.seek_relative(148));
+        }
+        1 => {
+            // jump to the next tiff header
+            q!(reader.seek_relative(160 + 4));
+            q!(seek_tiff_header(reader));
+        }
+        _ => q!(Err(Error::PartNotDefined(part))),
+    }
+
+    Ok(())
 }
 
 #[macro_export]

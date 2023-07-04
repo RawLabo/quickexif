@@ -45,8 +45,11 @@ mod fuji_tags2 {
 fn main() -> LogResult<()> {
     let sample = "examples/samples/sample0.RAF";
     {
+        let mut reader = BufReader::new(q!(File::open(sample)));
+        q!(quickexif::seek_header_raf(&mut reader, 0));
+
         let result = q!(quickexif::parse_exif(
-            BufReader::new(q!(File::open(sample))),
+            reader,
             fuji_tags1::PATH_LST,
             None
         ));
@@ -61,18 +64,8 @@ fn main() -> LogResult<()> {
     }
 
     {
-        let f = q!(File::open(sample));
-        let mut reader = BufReader::new(f);
-
-        reader.seek_relative(160 + 4).unwrap();
-        loop {
-            let mut x = [0u8; 4];
-            reader.read_exact(&mut x).unwrap();
-            if x == [0x49, 0x49, 0x2a, 0x00] {
-                reader.seek_relative(-4).unwrap();
-                break;
-            }
-        }
+        let mut reader = BufReader::new(q!(File::open(sample)));
+        q!(quickexif::seek_header_raf(&mut reader, 1));
 
         let result = q!(quickexif::parse_exif(reader, fuji_tags2::PATH_LST, None));
 
