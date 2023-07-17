@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use quickexif::log_helper::*;
+use quickexif::report::*;
 use std::{
     collections::HashMap,
     fs::File,
@@ -42,17 +42,17 @@ mod fuji_tags2 {
     );
 }
 
-fn main() -> LogResult<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample = "examples/samples/sample0.RAF";
     {
-        let mut reader = BufReader::new(q!(File::open(sample)));
-        q!(quickexif::seek_header_raf(&mut reader, 0));
+        let mut reader = BufReader::new(File::open(sample)?);
+        quickexif::seek_header_raf(&mut reader, 0)?;
 
-        let result = q!(quickexif::parse_exif(
+        let result = quickexif::parse_exif(
             reader,
             fuji_tags1::PATH_LST,
             None
-        ));
+        )?;
         println!("{:?}", result.get(fuji_tags1::orientation).map(|x| x.u16()));
         println!("{:?}", result.get(fuji_tags1::make).and_then(|x| x.str()));
         println!("{:?}", result.get(fuji_tags1::model).and_then(|x| x.str()));
@@ -64,10 +64,10 @@ fn main() -> LogResult<()> {
     }
 
     {
-        let mut reader = BufReader::new(q!(File::open(sample)));
-        q!(quickexif::seek_header_raf(&mut reader, 1));
+        let mut reader = BufReader::new(File::open(sample)?);
+        quickexif::seek_header_raf(&mut reader, 1)?;
 
-        let result = q!(quickexif::parse_exif(reader, fuji_tags2::PATH_LST, None));
+        let result = quickexif::parse_exif(reader, fuji_tags2::PATH_LST, None)?;
 
         println!("{:?}", result.get(fuji_tags2::width).map(|x| x.u32()));
         println!("{:?}", result.get(fuji_tags2::height).map(|x| x.u32()));

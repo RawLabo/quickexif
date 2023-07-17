@@ -2,7 +2,7 @@
 #![allow(unused_imports)]
 
 use std::{collections::HashMap, fs::File, io::BufReader};
-use quickexif::log_helper::*;
+use quickexif::report::*;
 
 mod sony_tags {
     #![allow(non_upper_case_globals)]
@@ -40,11 +40,11 @@ mod sony_tags {
     );
 }
 
-fn main() -> LogResult<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample = "examples/samples/sample1.ARW";
-    let reader = BufReader::new(q!(File::open(sample)));
+    let reader = BufReader::new(File::open(sample)?);
 
-    let result = q!(quickexif::parse_exif(reader, sony_tags::PATH_LST, Some((0, 1))));
+    let result = quickexif::parse_exif(reader, sony_tags::PATH_LST, Some((0, 1)))?;
 
     println!("{:?}", result.get(sony_tags::make).and_then(|x| x.str()));
     println!("{:?}", result.get(sony_tags::model).and_then(|x| x.str()));

@@ -2,7 +2,7 @@
 #![allow(unused_imports)]
 
 use std::{collections::HashMap, fs::File, io::{BufReader, Seek}};
-use quickexif::log_helper::*;
+use quickexif::report::*;
 
 mod cr3_tags1 {
     #![allow(non_upper_case_globals)]
@@ -52,40 +52,40 @@ mod cr3_tags4 {
     );
 }
 
-fn main() -> LogResult<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample = "examples/samples/sample0.CR3";
     {
-        let mut reader = BufReader::new(q!(File::open(sample)));
-        q!(quickexif::seek_header_cr3(&mut reader, 0));
+        let mut reader = BufReader::new(File::open(sample)?);
+        quickexif::seek_header_cr3(&mut reader, 0)?;
         
-        let result = q!(quickexif::parse_exif(reader, cr3_tags1::PATH_LST, None));
+        let result = quickexif::parse_exif(reader, cr3_tags1::PATH_LST, None)?;
     
         println!("{:?}", result.get(cr3_tags1::make).and_then(|x| x.str()));
         println!("{:?}", result.get(cr3_tags1::model).and_then(|x| x.str()));
         println!("{:?}", result.get(cr3_tags1::orientation).map(|x| x.u16()));
     }
     {
-        let mut reader = BufReader::new(q!(File::open(sample)));
-        q!(quickexif::seek_header_cr3(&mut reader, 1));
+        let mut reader = BufReader::new(File::open(sample)?);
+        quickexif::seek_header_cr3(&mut reader, 1)?;
 
-        let result = q!(quickexif::parse_exif(reader, cr3_tags2::PATH_LST, None));
+        let result = quickexif::parse_exif(reader, cr3_tags2::PATH_LST, None)?;
 
         println!("{:?}", result.get(cr3_tags2::width).map(|x| x.u32()));
         println!("{:?}", result.get(cr3_tags2::height).map(|x| x.u32()));
     }
     {
-        let mut reader = BufReader::new(q!(File::open(sample)));
-        q!(quickexif::seek_header_cr3(&mut reader, 2));
+        let mut reader = BufReader::new(File::open(sample)?);
+        quickexif::seek_header_cr3(&mut reader, 2)?;
 
-        let result = q!(quickexif::parse_exif(reader, cr3_tags3::PATH_LST, None));
+        let result = quickexif::parse_exif(reader, cr3_tags3::PATH_LST, None)?;
 
         println!("{:?}", result.get(cr3_tags3::battery).and_then(|x| x.str()));
     }
     {
-        let mut reader = BufReader::new(q!(File::open(sample)));
-        q!(quickexif::seek_header_cr3(&mut reader, 4));
+        let mut reader = BufReader::new(File::open(sample)?);
+        quickexif::seek_header_cr3(&mut reader, 4)?;
 
-        let result = q!(quickexif::parse_exif(reader, cr3_tags4::PATH_LST, None));
+        let result = quickexif::parse_exif(reader, cr3_tags4::PATH_LST, None)?;
 
         println!("{:?}", result.get(cr3_tags4::colordata).map(|x| x.raw()));
     }

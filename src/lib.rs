@@ -7,9 +7,9 @@ use std::{
     io::{BufReader, Read, Seek},
 };
 
-pub mod log_helper;
+pub mod report;
 use log::info;
-use log_helper::*;
+use report::*;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -176,72 +176,72 @@ impl<T: Read + Seek> TiffParser<T> {
             .collect::<Vec<u8>>()
     }
 
-    fn read_to_vec(&mut self, bytes_count: usize) -> LogResult<Vec<u8>> {
+    fn read_to_vec(&mut self, bytes_count: usize) -> Result<Vec<u8>, Report> {
         let mut ret = vec![0u8; bytes_count];
-        q!(self.reader.read_exact(&mut ret));
+        self.reader.read_exact(&mut ret).to_report()?;
         Ok(ret)
     }
-    fn read_shift<const N: usize>(&mut self) -> LogResult<[u8; N]> {
+    fn read_shift<const N: usize>(&mut self) -> Result<[u8; N], Report> {
         let mut ret = [0u8; N];
-        q!(self.reader.read_exact(&mut ret));
+        self.reader.read_exact(&mut ret).to_report()?;
         Ok(ret)
     }
-    fn read_no_shift<const N: usize>(&mut self) -> LogResult<[u8; N]> {
+    fn read_no_shift<const N: usize>(&mut self) -> Result<[u8; N], Report> {
         let ret = self.read_shift();
-        q!(self.reader.seek_relative(N as i64 * -1));
+        self.reader.seek_relative(N as i64 * -1).to_report()?;
         ret
     }
-    fn seek_ab(&mut self, loc: u32) -> LogResult<()> {
-        let pos = q!(self.reader.stream_position());
-        q!(self
+    fn seek_ab(&mut self, loc: u32) -> Result<(), Report> {
+        let pos = self.reader.stream_position().to_report()?;
+        self
             .reader
-            .seek_relative(loc as i64 - pos as i64 + self.addr_offset as i64));
+            .seek_relative(loc as i64 - pos as i64 + self.addr_offset as i64).to_report()?;
         Ok(())
     }
-    fn recover_pos(&mut self, loc: u64) -> LogResult<()> {
-        let pos = q!(self.reader.stream_position());
-        q!(self.reader.seek_relative(loc as i64 - pos as i64));
-        Ok(())
-    }
-
-    fn seek_re(&mut self, loc: i64) -> LogResult<()> {
-        q!(self.reader.seek_relative(loc));
+    fn recover_pos(&mut self, loc: u64) -> Result<(), Report> {
+        let pos = self.reader.stream_position().to_report()?;
+        self.reader.seek_relative(loc as i64 - pos as i64).to_report()?;
         Ok(())
     }
 
-    fn new(mut reader: BufReader<T>, path_lst: impl AsRef<[&'static [u16]]>) -> LogResult<Self> {
-        let init_pos = q!(reader.stream_position());
+    fn seek_re(&mut self, loc: i64) -> Result<(), Report> {
+        self.reader.seek_relative(loc).to_report()?;
+        Ok(())
+    }
+
+    fn new(mut reader: BufReader<T>, path_lst: impl AsRef<[&'static [u16]]>) -> Result<Self, Report> {
+        let init_pos = reader.stream_position().to_report()?;
         let addr_offset = init_pos as i32 + {
             // jpg detect
             let mut header = [0u8; 2];
-            q!(reader.read_exact(&mut header));
+            reader.read_exact(&mut header).to_report()?;
             if header == [0xff, 0xd8] {
                 let mut header = [0u8; 2];
-                q!(reader.read_exact(&mut header));
+                reader.read_exact(&mut header).to_report()?;
 
                 if header == [0xff, 0xe0] {
                     // is JFIF
-                    q!(reader.seek_relative(26));
+                    reader.seek_relative(26).to_report()?;
                     30
                 } else {
                     // is EXIF
-                    q!(reader.seek_relative(8));
+                    reader.seek_relative(8).to_report()?;
                     12
                 }
             } else {
-                q!(reader.seek_relative(-2));
+                reader.seek_relative(-2).to_report()?;
                 0
             }
         };
 
         let is_le = {
             let mut header = [0u8; 2];
-            q!(reader.read_exact(&mut header));
-            q!(reader.seek_relative(-2));
+            reader.read_exact(&mut header).to_report()?;
+            reader.seek_relative(-2).to_report()?;
             match header {
                 [0x49, 0x49] => true,
                 [0x4d, 0x4d] => false,
-                _ => q!(Err(Error::InvalidTiffHeader(header))),
+                _ => Err(Error::InvalidTiffHeader(header)).to_report()?,
             }
         };
 
@@ -265,7 +265,7 @@ impl<T: Read + Seek> TiffParser<T> {
         format: [u8; 2],
         size: [u8; 4],
         addr: [u8; 4],
-    ) -> LogResult<Option<Box<[u8]>>> {
+    ) -> Result<Option<Box<[u8]>>, Report> {
         let format = self.u16(format);
         let format_size = match format {
             0x0001 => 1u32, // u8
@@ -287,19 +287,19 @@ impl<T: Read + Seek> TiffParser<T> {
         let total_size = self.u32(size) * format_size;
         if total_size > 4 || format == 0x0002 {
             let addr = self.u32(addr);
-            let pos = q!(self.reader.stream_position());
-            q!(self.seek_ab(addr));
-            let actual_value = q!(self.read_to_vec(total_size as usize));
-            q!(self.recover_pos(pos));
+            let pos = self.reader.stream_position().to_report()?;
+            self.seek_ab(addr).to_report()?;
+            let actual_value = self.read_to_vec(total_size as usize).to_report()?;
+            self.recover_pos(pos).to_report()?;
             Ok(Some(actual_value.into()))
         } else {
             Ok(None)
         }
     }
 
-    fn parse_ifd(&mut self, path: Vec<u16>, collector: &mut Collector) -> LogResult<()> {
+    fn parse_ifd(&mut self, path: Vec<u16>, collector: &mut Collector) -> Result<(), Report> {
         let entry_count = {
-            let x = q!(self.read_shift::<2>());
+            let x = self.read_shift::<2>().to_report()?;
             self.u16(x)
         };
 
@@ -309,13 +309,13 @@ impl<T: Read + Seek> TiffParser<T> {
 
         let mut dig_deep = vec![];
         for _ in 0..entry_count {
-            let tag = q!(self.read_shift::<2>());
+            let tag = self.read_shift::<2>().to_report()?;
             let tag = self.u16(tag);
 
-            let format = q!(self.read_shift::<2>());
-            let size = q!(self.read_shift::<4>());
-            let value = q!(self.read_shift::<4>());
-            let actual_value = q!(self.check_actual_value(format, size, value));
+            let format = self.read_shift::<2>().to_report()?;
+            let size = self.read_shift::<4>().to_report()?;
+            let value = self.read_shift::<4>().to_report()?;
+            let actual_value = self.check_actual_value(format, size, value).to_report()?;
 
             let ifd_item = IFDItem {
                 is_le: self.is_le,
@@ -352,60 +352,60 @@ impl<T: Read + Seek> TiffParser<T> {
         }
 
         let next_ifd_offset = {
-            let x = q!(self.read_shift::<4>());
+            let x = self.read_shift::<4>().to_report()?;
             self.u32(x)
         };
         if next_ifd_offset != 0 && next_ifd_offset < 0xffffff {
-            q!(self.seek_ab(next_ifd_offset));
+            self.seek_ab(next_ifd_offset).to_report()?;
 
             let mut next_path = path.clone();
             if let Some(x) = next_path.last_mut() {
                 *x += 1;
             }
-            q!(self.parse_ifd(next_path, collector));
+            self.parse_ifd(next_path, collector).to_report()?;
         }
 
         let addr_offset = self.addr_offset;
         for (addr, path) in dig_deep {
             self.addr_offset = addr_offset; // offset recover
-            q!(self.seek_ab(addr));
+            self.seek_ab(addr).to_report()?;
 
             // detect if is jpg header
-            if q!(self.read_no_shift::<2>()) == [0xff, 0xd8] {
-                q!(self.seek_re(12)); // pass JPEG header
-                self.addr_offset = q!(self.reader.stream_position()) as i32;
-                q!(self.shift_from_tiff_header());
+            if self.read_no_shift::<2>().to_report()? == [0xff, 0xd8] {
+                self.seek_re(12).to_report()?; // pass JPEG header
+                self.addr_offset = self.reader.stream_position().to_report()? as i32;
+                self.shift_from_tiff_header().to_report()?;
             }
             // detect if is makernotes
-            let check = q!(self.read_no_shift::<4>());
+            let check = self.read_no_shift::<4>().to_report()?;
             if let Some(&(shift, addr_offset)) = MAKERNOTES_HEADER_SIZE.get(&check) {
                 if let Some(offset) = addr_offset {
-                    self.addr_offset += q!(self.reader.stream_position()) as i32 + offset;
+                    self.addr_offset += self.reader.stream_position().to_report()? as i32 + offset;
                 }
-                q!(self.seek_re(shift));
+                self.seek_re(shift).to_report()?;
             }
 
-            q!(self.parse_ifd(path, collector));
+            self.parse_ifd(path, collector).to_report()?;
         }
 
         Ok(())
     }
 
-    fn shift_from_tiff_header(&mut self) -> LogResult<()> {
-        q!(self.seek_re(4));
+    fn shift_from_tiff_header(&mut self) -> Result<(), Report> {
+        self.seek_re(4).to_report()?;
         let ifd_offset = {
-            let x = q!(self.read_shift::<4>());
+            let x = self.read_shift::<4>().to_report()?;
             self.u32(x)
         };
-        q!(self.seek_ab(ifd_offset));
+        self.seek_ab(ifd_offset).to_report()?;
         Ok(())
     }
-    fn parse(&mut self) -> LogResult<Collector> {
+    fn parse(&mut self) -> Result<Collector, Report> {
         let mut result = HashMap::new();
 
-        q!(self.shift_from_tiff_header());
+        self.shift_from_tiff_header().to_report()?;
 
-        q!(self.parse_ifd(vec![0], &mut result));
+        self.parse_ifd(vec![0], &mut result).to_report()?;
 
         Ok(result)
     }
@@ -414,7 +414,7 @@ impl<T: Read + Seek> TiffParser<T> {
         sr2private_index: u16, // the index of sr2private path in path_map
         path: Vec<u16>,
         collector: &mut Collector,
-    ) -> LogResult<()> {
+    ) -> Result<(), Report> {
         match (
             collector.get(&(sr2private_index, 0x7200)),
             collector.get(&(sr2private_index, 0x7201)),
@@ -425,8 +425,8 @@ impl<T: Read + Seek> TiffParser<T> {
                 let length = self.u32(length_ifd.value);
                 let key = self.u32(key_ifd.value);
 
-                q!(self.seek_ab(offset));
-                let sr2private_bytes = q!(self.read_to_vec(length as usize));
+                self.seek_ab(offset).to_report()?;
+                let sr2private_bytes = self.read_to_vec(length as usize).to_report()?;
                 let decrypted = self.sony_decrypt(&sr2private_bytes, key);
                 let mut new_parser = TiffParser {
                     is_le: self.is_le,
@@ -434,7 +434,7 @@ impl<T: Read + Seek> TiffParser<T> {
                     reader: BufReader::new(std::io::Cursor::new(decrypted)),
                     path_map: self.path_map.clone(),
                 };
-                q!(new_parser.parse_ifd(path, collector));
+                new_parser.parse_ifd(path, collector).to_report()?;
             }
             _ => {}
         }
@@ -446,47 +446,47 @@ pub fn parse_exif<T: Read + Seek>(
     reader: BufReader<T>,
     path_dig: &[&'static [u16]],
     sony_decrypt_index: Option<(u16, usize)>, // (sr2private_path_index, sr2private_offset_path_index)
-) -> LogResult<Collector> {
-    let mut parser = q!(TiffParser::new(reader, path_dig));
-    let mut result = q!(parser.parse());
+) -> Result<Collector, Report> {
+    let mut parser = TiffParser::new(reader, path_dig).to_report()?;
+    let mut result = parser.parse().to_report()?;
 
     if let Some((sr2private_path_index, sr2private_offset_path_index)) = sony_decrypt_index {
-        q!(parser.parse_sony_sr2private(
+        parser.parse_sony_sr2private(
             sr2private_path_index,
             path_dig[sr2private_offset_path_index].to_vec(),
             &mut result,
-        ));
+        ).to_report()?;
     }
 
     Ok(result)
 }
 
-fn seek_tiff_header<T: Read + Seek>(reader: &mut BufReader<T>) -> LogResult<()> {
+fn seek_tiff_header<T: Read + Seek>(reader: &mut BufReader<T>) -> Result<(), Report> {
     loop {
         let mut x = [0u8; 4];
-        q!(reader.read_exact(&mut x));
+        reader.read_exact(&mut x).to_report()?;
         if x == [0x49, 0x49, 0x2a, 0x00] {
-            q!(reader.seek_relative(-4));
+            reader.seek_relative(-4).to_report()?;
             break Ok(());
         }
     }
 }
 
-fn seek_cr3_cmt<T: Read + Seek>(reader: &mut BufReader<T>, no: u8) -> LogResult<()> {
+fn seek_cr3_cmt<T: Read + Seek>(reader: &mut BufReader<T>, no: u8) -> Result<(), Report> {
     loop {
         let mut x = [0u8; 4];
-        q!(reader.read_exact(&mut x));
+        reader.read_exact(&mut x).to_report()?;
         if x == [0x43, 0x4d, 0x54, no] {
             break Ok(());
         }
     }
 }
-fn seek_cr3_header<T: Read + Seek>(reader: &mut BufReader<T>, index: i8) -> LogResult<()> {
-    q!(reader.seek_relative(0x1a00002i64));
+fn seek_cr3_header<T: Read + Seek>(reader: &mut BufReader<T>, index: i8) -> Result<(), Report> {
+    reader.seek_relative(0x1a00002i64).to_report()?;
     let mut curr = -1i8;
     while curr < index {
         let mut x = [0u8; 4];
-        q!(reader.read_exact(&mut x));
+        reader.read_exact(&mut x).to_report()?;
         if x == [0x7c, 0x92, 0, 0] {
             curr += 1;
         }
@@ -494,40 +494,40 @@ fn seek_cr3_header<T: Read + Seek>(reader: &mut BufReader<T>, index: i8) -> LogR
     Ok(())
 }
 
-pub fn seek_header_cr3<T: Read + Seek>(reader: &mut BufReader<T>, part: u8) -> LogResult<()> {
+pub fn seek_header_cr3<T: Read + Seek>(reader: &mut BufReader<T>, part: u8) -> Result<(), Report> {
     match part {
         0 => {
-            q!(seek_cr3_cmt(reader, 0x31));
+            seek_cr3_cmt(reader, 0x31).to_report()?;
         }
         1 => {
-            q!(seek_cr3_cmt(reader, 0x32));
+            seek_cr3_cmt(reader, 0x32).to_report()?;
         }
         2 => {
-            q!(seek_cr3_cmt(reader, 0x33));
+            seek_cr3_cmt(reader, 0x33).to_report()?;
         }
         3 => {
-            q!(seek_cr3_header(reader, 0));
+            seek_cr3_header(reader, 0).to_report()?;
         }
         4 => {
-            q!(seek_cr3_header(reader, 1));
+            seek_cr3_header(reader, 1).to_report()?;
         }
-        _ => q!(Err(Error::PartNotDefined(part))),
+        _ => Err(Error::PartNotDefined(part)).to_report()?,
     }
     Ok(())
 }
 
-pub fn seek_header_raf<T: Read + Seek>(reader: &mut BufReader<T>, part: u8) -> LogResult<()> {
+pub fn seek_header_raf<T: Read + Seek>(reader: &mut BufReader<T>, part: u8) -> Result<(), Report> {
     match part {
         0 => {
             // cut first 148 bytes
-            q!(reader.seek_relative(148));
+            reader.seek_relative(148).to_report()?;
         }
         1 => {
             // jump to the next tiff header
-            q!(reader.seek_relative(160 + 4));
-            q!(seek_tiff_header(reader));
+            reader.seek_relative(160 + 4).to_report()?;
+            seek_tiff_header(reader).to_report()?;
         }
-        _ => q!(Err(Error::PartNotDefined(part))),
+        _ => Err(Error::PartNotDefined(part)).to_report()?,
     }
 
     Ok(())

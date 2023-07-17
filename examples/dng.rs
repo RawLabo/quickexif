@@ -2,7 +2,7 @@
 #![allow(unused_imports)]
 
 use std::{collections::HashMap, fs::File, io::BufReader};
-use quickexif::log_helper::*;
+use quickexif::report::*;
 
 mod adobe_tags {
     #![allow(non_upper_case_globals)]
@@ -90,11 +90,11 @@ mod adobe_tags {
     );
 }
 
-fn main() -> LogResult<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample = "examples/samples/sample0.dng";
-    let reader = BufReader::new(q!(File::open(sample)));
+    let reader = BufReader::new(File::open(sample)?);
 
-    let result = q!(quickexif::parse_exif(reader, adobe_tags::PATH_LST, None));
+    let result = quickexif::parse_exif(reader, adobe_tags::PATH_LST, None)?;
 
     println!("{:?}", result.get(adobe_tags::make).and_then(|x| x.str()));
     println!("{:?}", result.get(adobe_tags::model).and_then(|x| x.str()));

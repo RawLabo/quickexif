@@ -2,7 +2,7 @@
 #![allow(unused_imports)]
 
 use std::{collections::HashMap, fs::File, io::BufReader};
-use quickexif::log_helper::*;
+use quickexif::report::*;
 
 mod olympus_tags {
     #![allow(non_upper_case_globals)]
@@ -32,11 +32,11 @@ mod olympus_tags {
     );
 }
 
-fn main() -> LogResult<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample = "examples/samples/sample0.ORF";
-    let reader = BufReader::new(q!(File::open(sample)));
+    let reader = BufReader::new(File::open(sample)?);
 
-    let result = q!(quickexif::parse_exif(reader, olympus_tags::PATH_LST, None));
+    let result = quickexif::parse_exif(reader, olympus_tags::PATH_LST, None)?;
 
     println!("{:?}", result.get(olympus_tags::orientation).map(|x| x.u16()));
     println!("{:?}", result.get(olympus_tags::width).map(|x| x.u32()));

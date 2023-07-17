@@ -2,7 +2,7 @@
 #![allow(unused_imports)]
 
 use std::{collections::HashMap, fs::File, io::BufReader};
-use quickexif::log_helper::*;
+use quickexif::report::*;
 
 mod panasonic_tags {
     #![allow(non_upper_case_globals)]
@@ -38,11 +38,11 @@ mod panasonic_tags {
     );
 }
 
-fn main() -> LogResult<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample = "examples/samples/sample0.RW2";
-    let reader = BufReader::new(q!(File::open(sample)));
+    let reader = BufReader::new(File::open(sample)?);
 
-    let result = q!(quickexif::parse_exif(reader, panasonic_tags::PATH_LST, None));
+    let result = quickexif::parse_exif(reader, panasonic_tags::PATH_LST, None)?;
 
     println!("{:?}", result.get(panasonic_tags::width).map(|x| x.u32()));
     println!("{:?}", result.get(panasonic_tags::height).map(|x| x.u32()));
