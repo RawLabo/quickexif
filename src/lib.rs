@@ -7,9 +7,10 @@ use std::{
     io::{BufReader, Read, Seek},
 };
 
-pub mod report;
 use log::info;
-use report::*;
+
+erreport::gen_report_code!();
+use report::{Report, ToReport};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

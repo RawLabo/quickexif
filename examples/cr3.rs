@@ -2,7 +2,6 @@
 #![allow(unused_imports)]
 
 use std::{collections::HashMap, fs::File, io::{BufReader, Seek}};
-use quickexif::report::*;
 
 mod cr3_tags1 {
     #![allow(non_upper_case_globals)]

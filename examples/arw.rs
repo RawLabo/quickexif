@@ -2,7 +2,6 @@
 #![allow(unused_imports)]
 
 use std::{collections::HashMap, fs::File, io::BufReader};
-use quickexif::report::*;
 
 mod sony_tags {
     #![allow(non_upper_case_globals)]

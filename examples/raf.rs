@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use quickexif::report::*;
 use std::{
     collections::HashMap,
     fs::File,
