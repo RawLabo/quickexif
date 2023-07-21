@@ -1,6 +1,6 @@
 [package]
 name = "quickexif"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 edition = "2021"
 description = "A rust library to parse EXIF data from images"
 keywords = ["exif", "tiff", "jpeg"]
