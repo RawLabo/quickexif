@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample = "examples/samples/sample0.dng";
     let reader = BufReader::new(File::open(sample)?);
 
-    let result = quickexif::parse_exif(reader, adobe_tags::PATH_LST, None)?;
+    let (result, _) = quickexif::parse_exif(reader, adobe_tags::PATH_LST, None)?;
 
     println!("{:?}", result.get(adobe_tags::make).and_then(|x| x.str()));
     println!("{:?}", result.get(adobe_tags::model).and_then(|x| x.str()));

@@ -34,7 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample = "examples/samples/sample0.CR2";
     let reader = BufReader::new(File::open(sample)?);
 
-    let result = quickexif::parse_exif(reader, cr2_tags::PATH_LST, None)?;
+    let (result, _) = quickexif::parse_exif(reader, cr2_tags::PATH_LST, None)?;
 
     println!("{:?}", result.get(cr2_tags::make).and_then(|x| x.str()));
     println!("{:?}", result.get(cr2_tags::model).and_then(|x| x.str()));

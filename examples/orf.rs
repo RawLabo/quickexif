@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample = "examples/samples/sample0.ORF";
     let reader = BufReader::new(File::open(sample)?);
 
-    let result = quickexif::parse_exif(reader, olympus_tags::PATH_LST, None)?;
+    let (result, _) = quickexif::parse_exif(reader, olympus_tags::PATH_LST, None)?;
 
     println!("{:?}", result.get(olympus_tags::orientation).map(|x| x.u16()));
     println!("{:?}", result.get(olympus_tags::width).map(|x| x.u32()));

@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample = "examples/samples/sample1.ARW";
     let reader = BufReader::new(File::open(sample)?);
 
-    let result = quickexif::parse_exif(reader, sony_tags::PATH_LST, Some((0, 1)))?;
+    let (result, _) = quickexif::parse_exif(reader, sony_tags::PATH_LST, Some((0, 1)))?;
 
     println!("{:?}", result.get(sony_tags::make).and_then(|x| x.str()));
     println!("{:?}", result.get(sony_tags::model).and_then(|x| x.str()));

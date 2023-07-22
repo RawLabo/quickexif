@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample = "examples/samples/sample0.NEF";
     let reader = BufReader::new(File::open(sample)?);
 
-    let result = quickexif::parse_exif(reader, nikon_tags::PATH_LST, None)?;
+    let (result, _) = quickexif::parse_exif(reader, nikon_tags::PATH_LST, None)?;
 
     println!("{:?}", result.get(nikon_tags::orientation).map(|x| x.u16()));
     println!("{:?}", result.get(nikon_tags::thumbnail).map(|x| x.u32()));

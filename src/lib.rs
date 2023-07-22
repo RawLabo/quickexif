@@ -443,11 +443,12 @@ impl<T: Read + Seek> TiffParser<T> {
     }
 }
 
+/// The return data contains (exif_info_hashmap, is_little_endian_marker)
 pub fn parse_exif<T: Read + Seek>(
     reader: BufReader<T>,
     path_dig: &[&'static [u16]],
     sony_decrypt_index: Option<(u16, usize)>, // (sr2private_path_index, sr2private_offset_path_index)
-) -> Result<Collector, Report> {
+) -> Result<(Collector, bool), Report> {
     let mut parser = TiffParser::new(reader, path_dig).to_report()?;
     let mut result = parser.parse().to_report()?;
 
@@ -459,7 +460,7 @@ pub fn parse_exif<T: Read + Seek>(
         ).to_report()?;
     }
 
-    Ok(result)
+    Ok((result, parser.is_le))
 }
 
 fn seek_tiff_header<T: Read + Seek>(reader: &mut BufReader<T>) -> Result<(), Report> {

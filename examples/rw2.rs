@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sample = "examples/samples/sample0.RW2";
     let reader = BufReader::new(File::open(sample)?);
 
-    let result = quickexif::parse_exif(reader, panasonic_tags::PATH_LST, None)?;
+    let (result, _) = quickexif::parse_exif(reader, panasonic_tags::PATH_LST, None)?;
 
     println!("{:?}", result.get(panasonic_tags::width).map(|x| x.u32()));
     println!("{:?}", result.get(panasonic_tags::height).map(|x| x.u32()));
