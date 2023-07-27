@@ -60,9 +60,11 @@ impl IFDItem {
         }
     }
     pub fn str(&self) -> Option<&str> {
-        self.actual_value
-            .as_ref()
-            .and_then(|bytes| std::str::from_utf8(bytes).ok())
+        self.actual_value.as_ref().and_then(|bytes| {
+            std::str::from_utf8(bytes)
+                .ok()
+                .and_then(|x| x.strip_suffix('\0'))
+        })
     }
     pub fn u16s(&self) -> Option<Box<[u16]>> {
         self.actual_value.as_ref().map(|bytes| {
@@ -194,14 +196,16 @@ impl<T: Read + Seek> TiffParser<T> {
     }
     fn seek_ab(&mut self, loc: u32) -> Result<(), Report> {
         let pos = self.reader.stream_position().to_report()?;
-        self
-            .reader
-            .seek_relative(loc as i64 - pos as i64 + self.addr_offset as i64).to_report()?;
+        self.reader
+            .seek_relative(loc as i64 - pos as i64 + self.addr_offset as i64)
+            .to_report()?;
         Ok(())
     }
     fn recover_pos(&mut self, loc: u64) -> Result<(), Report> {
         let pos = self.reader.stream_position().to_report()?;
-        self.reader.seek_relative(loc as i64 - pos as i64).to_report()?;
+        self.reader
+            .seek_relative(loc as i64 - pos as i64)
+            .to_report()?;
         Ok(())
     }
 
@@ -210,7 +214,10 @@ impl<T: Read + Seek> TiffParser<T> {
         Ok(())
     }
 
-    fn new(mut reader: BufReader<T>, path_lst: impl AsRef<[&'static [u16]]>) -> Result<Self, Report> {
+    fn new(
+        mut reader: BufReader<T>,
+        path_lst: impl AsRef<[&'static [u16]]>,
+    ) -> Result<Self, Report> {
         let init_pos = reader.stream_position().to_report()?;
         let addr_offset = init_pos as i32 + {
             // jpg detect
@@ -453,11 +460,13 @@ pub fn parse_exif<T: Read + Seek>(
     let mut result = parser.parse().to_report()?;
 
     if let Some((sr2private_path_index, sr2private_offset_path_index)) = sony_decrypt_index {
-        parser.parse_sony_sr2private(
-            sr2private_path_index,
-            path_dig[sr2private_offset_path_index].to_vec(),
-            &mut result,
-        ).to_report()?;
+        parser
+            .parse_sony_sr2private(
+                sr2private_path_index,
+                path_dig[sr2private_offset_path_index].to_vec(),
+                &mut result,
+            )
+            .to_report()?;
     }
 
     Ok((result, parser.is_le))
