@@ -11,7 +11,7 @@ exclude = ["examples/samples/"]
 
 [dependencies]
 thiserror = "1"
-erreport = "0.1"
+erreport = "0.2"
 log = "0.4"
 phf = { version ="0.11", features = ["macros"] }
 

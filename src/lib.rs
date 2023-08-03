@@ -9,8 +9,8 @@ use std::{
 
 use log::info;
 
-erreport::gen_report_code!();
-use report::{Report, ToReport};
+erreport::gen_trait_to_report!();
+use erreport::Report;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
