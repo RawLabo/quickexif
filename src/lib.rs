@@ -12,6 +12,8 @@ use log::info;
 erreport::gen_trait_to_report!();
 use erreport::Report;
 
+pub mod jpeg;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("Invalid Tiff header: {0:#x?}")]
