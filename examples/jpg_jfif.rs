@@ -1,10 +1,11 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use std::fs::File;
+use std::fs;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let f = File::open("examples/samples/sample_jfif.jpeg")?;
-    let jpeg = quickexif::jpeg::JPEG::new(f)?;
+    let data = fs::read("examples/samples/sample_jfif.jpeg")?;
+    let jpeg = quickexif::jpeg::JPEG::new(&data)?;
+    println!("{:x?}", jpeg);
     Ok(())
 }
