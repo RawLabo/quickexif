@@ -7,8 +7,6 @@ use std::{
     io::{BufReader, Read, Seek},
 };
 
-use log::info;
-
 erreport::gen_trait_to_report!();
 use erreport::Report;
 
