@@ -83,6 +83,10 @@ impl<'a> JPEG<'a> {
         loop {
             let marker = bytes.u16(cursor).to_report()?;
             match marker {
+                0xffe0 => { // pass useless markers
+                    let size = bytes.u16(cursor).to_report()? as usize;
+                    *cursor += size - 2;
+                }
                 0xffdb => {
                     let size = bytes.u16(cursor).to_report()? as usize;
                     jpeg.dqt = bytes.slice(cursor, size - 2).to_report()?;
