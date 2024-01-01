@@ -28,6 +28,7 @@ pub struct IFDItem {
     size: [u8; 4],
     value: [u8; 4],
     actual_value: Option<Box<[u8]>>,
+    addr: u64,
 }
 
 impl IFDItem {
@@ -36,6 +37,9 @@ impl IFDItem {
             Some(x) => x,
             None => &self.value,
         }
+    }
+    pub fn addr(&self) -> usize {
+        self.addr as usize
     }
     pub fn size(&self) -> u32 {
         if self.is_le {
@@ -184,6 +188,11 @@ impl<T: Read + Seek> TiffParser<T> {
         self.reader.read_exact(&mut ret).to_report()?;
         Ok(ret)
     }
+    fn get_addr(&mut self) -> Result<u64, Report> {
+        self.reader
+            .stream_position()
+            .to_report()
+    }
     fn read_shift<const N: usize>(&mut self) -> Result<[u8; N], Report> {
         let mut ret = [0u8; N];
         self.reader.read_exact(&mut ret).to_report()?;
@@ -317,6 +326,7 @@ impl<T: Read + Seek> TiffParser<T> {
 
         let mut dig_deep = vec![];
         for _ in 0..entry_count {
+            let addr = self.get_addr().to_report()?;
             let tag = self.read_shift::<2>().to_report()?;
             let tag = self.u16(tag);
 
@@ -332,6 +342,7 @@ impl<T: Read + Seek> TiffParser<T> {
                 size,
                 value,
                 actual_value,
+                addr
             };
 
             // switch to the current tag

@@ -101,6 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{:?}", result.get(adobe_tags::is_converted).and_then(|x| x.str()));
     println!("{:?}", result.get(adobe_tags::color_matrix_1).and_then(|x| x.r64s()));
     println!("{:?}", result.get(adobe_tags::color_matrix_2).and_then(|x| x.r64s()));
+    println!("{:x?}", result.get(adobe_tags::color_matrix_2).map(|x| x.addr()));
 
     if result.get(adobe_tags::cfa_pattern0).is_some() {
         println!("{:?}", result.get(adobe_tags::thumbnail0).map(|x| x.u32()));
